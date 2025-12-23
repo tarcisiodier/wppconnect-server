@@ -1913,7 +1913,7 @@ export async function getAllContacts(req: Request, res: Response) {
     req.logger.error(error);
     res.status(500).json({
       status: 'error',
-      message: 'Error on get all constacts',
+      message: 'Error on get all contacts',
       error: error,
     });
   }
@@ -2277,11 +2277,10 @@ export async function chatWoot(req: Request, res: Response): Promise<any> {
       for (const contato of contactToArray(phone, false)) {
         if (message_type == 'outgoing') {
           if (message.attachments) {
-            const base_url = `${
-              client.config.chatWoot.baseURL
-            }/${message.attachments[0].data_url.substring(
-              message.attachments[0].data_url.indexOf('/rails/') + 1
-            )}`;
+            const base_url = `${client.config.chatWoot.baseURL
+              }/${message.attachments[0].data_url.substring(
+                message.attachments[0].data_url.indexOf('/rails/') + 1
+              )}`;
 
             // Check if attachments is Push-to-talk and send this
             if (message.attachments[0].file_type === 'audio') {
