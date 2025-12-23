@@ -882,6 +882,11 @@ routes.get(
   MiscController.takeScreenshot
 );
 routes.post('/api/:session/set-limit', MiscController.setLimit);
+routes.post(
+  '/api/:session/extract-lid-mapping',
+  verifyToken,
+  MiscController.extractLidMapping
+);
 
 //Communitys
 routes.post(

@@ -23,3 +23,9 @@ userDataDir
 backupFolder
 tokens/*
 wppconnect_tokens/*
+
+# Ignore all markdown files
+*.md
+# Allow specifically README and CHANGELOG
+!README.md
+!CHANGELOG.md

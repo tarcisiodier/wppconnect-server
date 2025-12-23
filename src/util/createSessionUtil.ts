@@ -15,6 +15,8 @@
  */
 import { create, SocketState, StatusFind } from '@wppconnect-team/wppconnect';
 import { Request } from 'express';
+import fs from 'fs';
+import path from 'path';
 
 import { download } from '../controller/sessionController';
 import { WhatsAppServer } from '../types/WhatsAppServer';
@@ -55,8 +57,110 @@ export default class CreateSessionUtil {
       this.startChatWootClient(client);
 
       if (req.serverOptions.customUserDataDir) {
+        const userDataDirPath = req.serverOptions.customUserDataDir + session;
+        
+        // Limpa lock files do Chromium antes de iniciar
+        try {
+          const lockFiles = [
+            path.join(userDataDirPath, 'SingletonLock'),
+            path.join(userDataDirPath, 'lockfile'),
+            path.join(userDataDirPath, 'SingletonSocket'),
+            path.join(userDataDirPath, 'SingletonCookie'),
+            path.join(userDataDirPath, 'chrome_debug.log'),
+            path.join(userDataDirPath, 'chrome_debug.log.old'),
+          ];
+          
+          // Também limpa locks em subdiretórios comuns
+          const subDirs = ['Default', 'Profile 1', 'Profile 2'];
+          subDirs.forEach((subDir) => {
+            const subDirPath = path.join(userDataDirPath, subDir);
+            if (fs.existsSync(subDirPath)) {
+              lockFiles.push(
+                path.join(subDirPath, 'SingletonLock'),
+                path.join(subDirPath, 'lockfile'),
+                path.join(subDirPath, 'SingletonSocket'),
+                path.join(subDirPath, 'SingletonCookie')
+              );
+            }
+          });
+          
+          // Função recursiva para encontrar e remover todos os locks
+          const removeAllLocks = (dir: string) => {
+            try {
+              if (!fs.existsSync(dir)) return;
+              
+              const files = fs.readdirSync(dir);
+              files.forEach((file) => {
+                const filePath = path.join(dir, file);
+                try {
+                  const stat = fs.statSync(filePath);
+                  if (stat.isDirectory()) {
+                    removeAllLocks(filePath);
+                  } else if (
+                    file.includes('Singleton') ||
+                    file === 'lockfile' ||
+                    file.startsWith('.org.chromium')
+                  ) {
+                    fs.unlinkSync(filePath);
+                    req.logger?.info(`[${session}] Removed lock: ${filePath}`);
+                  }
+                } catch (e) {
+                  // Ignora erros ao processar arquivos
+                }
+              });
+            } catch (e) {
+              // Ignora erros ao ler diretório
+            }
+          };
+          
+          let removedCount = 0;
+          lockFiles.forEach((lockFile) => {
+            try {
+              if (fs.existsSync(lockFile)) {
+                // Tenta remover o arquivo
+                fs.unlinkSync(lockFile);
+                removedCount++;
+                req.logger?.info(`[${session}] Removed lock file: ${lockFile}`);
+              }
+            } catch (e: any) {
+              // Se não conseguir remover, tenta forçar a remoção
+              try {
+                fs.chmodSync(lockFile, 0o666);
+                fs.unlinkSync(lockFile);
+                removedCount++;
+                req.logger?.info(`[${session}] Force removed lock file: ${lockFile}`);
+              } catch (e2: any) {
+                req.logger?.warn(`[${session}] Failed to remove lock file ${lockFile}: ${e2?.message}`);
+              }
+            }
+          });
+          
+          // Limpeza recursiva adicional para garantir que todos os locks sejam removidos
+          removeAllLocks(userDataDirPath);
+          
+          // Tenta limpar o diretório de lock se existir
+          const lockDir = path.join(userDataDirPath, 'SingletonLock');
+          if (fs.existsSync(lockDir) && fs.statSync(lockDir).isDirectory()) {
+            try {
+              fs.rmSync(lockDir, { recursive: true, force: true });
+              req.logger?.info(`[${session}] Removed lock directory: ${lockDir}`);
+            } catch (e: any) {
+              req.logger?.warn(`[${session}] Failed to remove lock directory: ${e?.message}`);
+            }
+          }
+          
+          if (removedCount > 0 || fs.existsSync(userDataDirPath)) {
+            req.logger?.info(`[${session}] Cleaned locks, waiting for filesystem sync...`);
+            // Delay maior para garantir que os locks foram completamente liberados
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        } catch (e: any) {
+          req.logger?.warn(`[${session}] Error cleaning locks: ${e?.message}`);
+        }
+        
         req.serverOptions.createOptions.puppeteerOptions = {
-          userDataDir: req.serverOptions.customUserDataDir + session,
+          ...req.serverOptions.createOptions.puppeteerOptions,
+          userDataDir: userDataDirPath,
         };
       }
 
