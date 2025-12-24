@@ -45,5 +45,14 @@ RUN apk add --no-cache \
     vips \
     fftw
 
+# Install PM2 globally
+RUN npm install -g pm2
+
+# Copy ecosystem config file
+COPY ecosystem.config.js ./
+
 EXPOSE 21465
-ENTRYPOINT ["node", "dist/server.js"]
+
+# Use PM2 to start the application
+# pm2-runtime keeps the process in foreground for Docker
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]

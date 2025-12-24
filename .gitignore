@@ -5,6 +5,7 @@
 /.vs
 /bin
 /log
+/logs
 /obj/Debug
 /tokens
 /uploads

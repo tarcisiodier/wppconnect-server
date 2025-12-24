@@ -1,0 +1,174 @@
+# Configuração do Nginx para WPPConnect Server
+# 
+# Instruções:
+# 1. Copie este arquivo para /etc/nginx/sites-available/wppconnect-server
+# 2. Crie um link simbólico: sudo ln -s /etc/nginx/sites-available/wppconnect-server /etc/nginx/sites-enabled/
+# 3. Teste a configuração: sudo nginx -t
+# 4. Recarregue o nginx: sudo systemctl reload nginx
+
+# Upstream para o servidor Node.js
+upstream wppconnect_backend {
+    # Se usando PM2 com múltiplas instâncias, adicione mais servidores
+    server 127.0.0.1:21465;
+    # server 127.0.0.1:21466;  # Para balanceamento de carga
+    # server 127.0.0.1:21467;
+    
+    # Manter conexões vivas
+    keepalive 64;
+}
+
+# Redirecionamento HTTP para HTTPS (opcional, descomente se usar SSL)
+# server {
+#     listen 80;
+#     server_name seu-dominio.com www.seu-dominio.com;
+#     
+#     return 301 https://$server_name$request_uri;
+# }
+
+# Configuração do servidor HTTP
+server {
+    listen 80;
+    # listen [::]:80;  # Para IPv6
+    
+    server_name seu-dominio.com www.seu-dominio.com;
+    # ou use _ para aceitar qualquer domínio
+    # server_name _;
+    
+    # Tamanho máximo de upload (importante para envio de arquivos)
+    client_max_body_size 50M;
+    
+    # Timeouts aumentados para operações longas
+    proxy_connect_timeout 600s;
+    proxy_send_timeout 600s;
+    proxy_read_timeout 600s;
+    send_timeout 600s;
+    
+    # Logs
+    access_log /var/log/nginx/wppconnect-access.log;
+    error_log /var/log/nginx/wppconnect-error.log;
+    
+    # Configurações de proxy
+    location / {
+        proxy_pass http://wppconnect_backend;
+        proxy_http_version 1.1;
+        
+        # Headers importantes
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+        
+        # WebSocket support (importante para Socket.IO)
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Buffering desabilitado para streaming
+        proxy_buffering off;
+        proxy_cache off;
+        
+        # Timeouts específicos
+        proxy_connect_timeout 7d;
+        proxy_send_timeout 7d;
+        proxy_read_timeout 7d;
+    }
+    
+    # Health check endpoint (se existir)
+    location /health {
+        proxy_pass http://wppconnect_backend;
+        access_log off;
+    }
+    
+    # Swagger UI
+    location /api-docs {
+        proxy_pass http://wppconnect_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    
+    # Arquivos estáticos (se houver)
+    location /files {
+        proxy_pass http://wppconnect_backend;
+        proxy_set_header Host $host;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+
+# Configuração HTTPS (opcional, descomente e configure se usar SSL)
+# server {
+#     listen 443 ssl http2;
+#     listen [::]:443 ssl http2;
+#     
+#     server_name seu-dominio.com www.seu-dominio.com;
+#     
+#     # Certificados SSL (use Let's Encrypt ou seus próprios certificados)
+#     ssl_certificate /etc/letsencrypt/live/seu-dominio.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/seu-dominio.com/privkey.pem;
+#     
+#     # Configurações SSL recomendadas
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers HIGH:!aNULL:!MD5;
+#     ssl_prefer_server_ciphers on;
+#     ssl_session_cache shared:SSL:10m;
+#     ssl_session_timeout 10m;
+#     
+#     # Tamanho máximo de upload
+#     client_max_body_size 50M;
+#     
+#     # Timeouts
+#     proxy_connect_timeout 600s;
+#     proxy_send_timeout 600s;
+#     proxy_read_timeout 600s;
+#     send_timeout 600s;
+#     
+#     # Logs
+#     access_log /var/log/nginx/wppconnect-ssl-access.log;
+#     error_log /var/log/nginx/wppconnect-ssl-error.log;
+#     
+#     # Configurações de proxy (mesmas do HTTP)
+#     location / {
+#         proxy_pass http://wppconnect_backend;
+#         proxy_http_version 1.1;
+#         
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_set_header X-Forwarded-Host $host;
+#         proxy_set_header X-Forwarded-Port $server_port;
+#         
+#         # WebSocket support
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection "upgrade";
+#         
+#         proxy_buffering off;
+#         proxy_cache off;
+#         
+#         proxy_connect_timeout 7d;
+#         proxy_send_timeout 7d;
+#         proxy_read_timeout 7d;
+#     }
+#     
+#     location /health {
+#         proxy_pass http://wppconnect_backend;
+#         access_log off;
+#     }
+#     
+#     location /api-docs {
+#         proxy_pass http://wppconnect_backend;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#     }
+#     
+#     location /files {
+#         proxy_pass http://wppconnect_backend;
+#         proxy_set_header Host $host;
+#         expires 30d;
+#         add_header Cache-Control "public, immutable";
+#     }
+# }
+

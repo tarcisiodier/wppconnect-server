@@ -115,6 +115,507 @@ yarn dev
 yarn build
 ```
 
+## Deploy em Produção com PM2
+
+O PM2 é um gerenciador de processos para aplicações Node.js que permite manter sua aplicação sempre ativa, reiniciar automaticamente em caso de falhas e gerenciar logs de forma eficiente.
+
+### Instalação do PM2
+
+Instale o PM2 globalmente no servidor de produção:
+
+```sh
+# Usando npm (recomendado para instalação global)
+sudo npm install -g pm2
+
+# Ou usando yarn (se preferir)
+sudo yarn global add pm2
+```
+
+### Build da Aplicação
+
+Antes de iniciar com PM2, certifique-se de que a aplicação foi compilada:
+
+```sh
+yarn build
+```
+
+### Iniciar Aplicação com PM2
+
+Navegue até o diretório onde o wppconnect-server está localizado e execute:
+
+**Opção 1 - Usando yarn (recomendado):**
+
+```sh
+pm2 start yarn --name wppconnect-server -- start
+```
+
+**Opção 2 - Usando o script diretamente:**
+
+```sh
+pm2 start dist/server.js --name wppconnect-server
+```
+
+**Opção 3 - Usando o arquivo ecosystem.config.js (recomendado para produção):**
+
+```sh
+pm2 start ecosystem.config.js
+```
+
+### Comandos Úteis do PM2
+
+#### Visualizar Status das Aplicações
+
+```sh
+pm2 status
+# ou
+pm2 list
+```
+
+#### Visualizar Logs
+
+Visualizar logs de todas as aplicações:
+
+```sh
+pm2 logs
+```
+
+Visualizar logs apenas do wppconnect-server:
+
+```sh
+pm2 logs wppconnect-server
+```
+
+Visualizar últimos logs (útil para monitoramento):
+
+```sh
+pm2 logs wppconnect-server --lines 100
+```
+
+#### Gerenciar Aplicação
+
+Parar a aplicação:
+
+```sh
+pm2 stop wppconnect-server
+```
+
+Reiniciar a aplicação:
+
+```sh
+pm2 restart wppconnect-server
+```
+
+Recarregar a aplicação (zero downtime):
+
+```sh
+pm2 reload wppconnect-server
+```
+
+Deletar a aplicação do PM2:
+
+```sh
+pm2 delete wppconnect-server
+```
+
+#### Monitoramento
+
+Monitorar recursos em tempo real:
+
+```sh
+pm2 monit
+```
+
+Visualizar informações detalhadas:
+
+```sh
+pm2 show wppconnect-server
+```
+
+### Configurar Inicialização Automática
+
+Para que a aplicação inicie automaticamente quando o servidor reiniciar:
+
+```sh
+# Gerar script de inicialização
+pm2 startup
+
+# Salvar a configuração atual do PM2
+pm2 save
+```
+
+O comando `pm2 startup` irá gerar e configurar um script de inicialização baseado no seu sistema operacional.
+
+### Configuração Avançada com Arquivo ecosystem.config.js
+
+Para configurações mais avançadas, você pode criar um arquivo `ecosystem.config.js` na raiz do projeto:
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: 'wppconnect-server',
+      script: './dist/server.js',
+      instances: 1,
+      exec_mode: 'fork',
+      watch: false,
+      max_memory_restart: '1G',
+      env: {
+        NODE_ENV: 'production',
+        PORT: '21465',
+      },
+      error_file: './logs/pm2-error.log',
+      out_file: './logs/pm2-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs: true,
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: '10s',
+    },
+  ],
+};
+```
+
+Depois, inicie com:
+
+```sh
+pm2 start ecosystem.config.js
+```
+
+### Logs
+
+Os logs são extremamente importantes para monitoramento e debugging. Com PM2, você pode:
+
+- **Visualizar logs em tempo real**: `pm2 logs wppconnect-server`
+- **Limpar logs**: `pm2 flush`
+- **Configurar rotação de logs**: Use o módulo `pm2-logrotate`:
+
+```sh
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:max_size 10M
+pm2 set pm2-logrotate:retain 7
+pm2 set pm2-logrotate:compress true
+```
+
+### Usando PM2 no Docker
+
+Para usar PM2 no Docker, você precisa modificar o Dockerfile para instalar o PM2 e usar o `ecosystem.config.js` como ponto de entrada.
+
+#### Dockerfile com PM2
+
+Atualize o Dockerfile para incluir PM2:
+
+```dockerfile
+FROM node:22.21.1-alpine AS base
+WORKDIR /usr/src/wpp-server
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+# Install build dependencies and runtime libraries for sharp
+RUN apk update && \
+    apk add --no-cache \
+    vips \
+    vips-dev \
+    fftw-dev \
+    gcc \
+    g++ \
+    make \
+    libc6-compat \
+    pkgconfig \
+    python3 \
+    && rm -rf /var/cache/apk/*
+
+# To make sure yarn 4 uses node-modules linker
+COPY .yarnrc.yml ./
+
+# Copy only package.json to leverage Docker cache
+COPY package.json ./
+COPY yarn.lock ./
+
+# Enable corepack and prepare yarn 4.12.0
+RUN corepack enable && \
+    corepack prepare yarn@4.12.0 --activate
+
+# Install dependencies with immutable lockfile
+RUN yarn install --immutable
+
+FROM base AS build
+WORKDIR /usr/src/wpp-server
+COPY . .
+RUN yarn install
+RUN yarn build
+
+FROM build AS runtime
+WORKDIR /usr/src/wpp-server/
+
+# Install runtime dependencies (chromium and vips libraries)
+RUN apk add --no-cache \
+    chromium \
+    vips \
+    fftw
+
+# Install PM2 globally
+RUN npm install -g pm2
+
+# Copy ecosystem config file
+COPY ecosystem.config.js ./
+
+EXPOSE 21465
+
+# Use PM2 to start the application
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]
+```
+
+#### Atualizar ecosystem.config.js para Docker
+
+Certifique-se de que o `ecosystem.config.js` está configurado corretamente:
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: 'wppconnect-server',
+      script: './dist/server.js',
+      instances: 1,
+      exec_mode: 'fork',
+      watch: false,
+      max_memory_restart: '1G',
+      env: {
+        NODE_ENV: 'production',
+        PORT: process.env.PORT || '21465',
+      },
+      error_file: './logs/pm2-error.log',
+      out_file: './logs/pm2-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs: true,
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: '10s',
+    },
+  ],
+};
+```
+
+#### Comandos Docker
+
+**Build da imagem:**
+
+```sh
+docker build -t wppconnect-server .
+```
+
+**Executar com docker-compose:**
+
+```sh
+docker-compose up -d
+```
+
+**Visualizar logs:**
+
+```sh
+# Logs do container (recomendado - mostra todos os logs do PM2)
+docker-compose logs -f wppconnect
+
+# Ou logs do PM2 dentro do container
+docker exec -it wpp-server pm2 logs
+
+# Logs em tempo real do PM2
+docker exec -it wpp-server pm2 logs wppconnect-server --lines 100
+```
+
+**Nota sobre logs:** Quando usado com `pm2-runtime` no Docker, o PM2 automaticamente redireciona os logs para stdout/stderr, permitindo que você veja todos os logs usando `docker logs` ou `docker-compose logs`. Os arquivos de log configurados no `ecosystem.config.js` também são criados dentro do container para referência.
+
+**Gerenciar aplicação:**
+
+```sh
+# Status do PM2 dentro do container
+docker exec -it wpp-server pm2 status
+
+# Reiniciar aplicação via PM2
+docker exec -it wpp-server pm2 restart wppconnect-server
+
+# Monitorar recursos
+docker exec -it wpp-server pm2 monit
+```
+
+**Nota:** O `pm2-runtime` é usado no Docker em vez de `pm2 start` porque ele mantém o processo em primeiro plano, necessário para containers Docker. O PM2 ainda fornece todos os benefícios de monitoramento e reinicialização automática.
+
+---
+
+# Configuração do Nginx como Reverse Proxy
+
+Para usar o Nginx como reverse proxy na frente da aplicação (recomendado para produção), você pode usar o arquivo de exemplo `nginx.conf.example`.
+
+## Instalação do Nginx
+
+```sh
+# Ubuntu/Debian
+sudo apt update
+sudo apt install nginx
+
+# CentOS/RHEL
+sudo yum install nginx
+```
+
+## Configuração
+
+1. **Copie o arquivo de exemplo:**
+
+```sh
+sudo cp nginx.conf.example /etc/nginx/sites-available/wppconnect-server
+```
+
+2. **Edite a configuração:**
+
+```sh
+sudo nano /etc/nginx/sites-available/wppconnect-server
+```
+
+3. **Ajuste as seguintes configurações:**
+
+- `server_name`: Substitua `seu-dominio.com` pelo seu domínio
+- `upstream`: Verifique se a porta `21465` corresponde à porta da sua aplicação
+- Se usar HTTPS, descomente e configure a seção SSL
+
+4. **Habilite o site:**
+
+```sh
+sudo ln -s /etc/nginx/sites-available/wppconnect-server /etc/nginx/sites-enabled/
+```
+
+5. **Teste a configuração:**
+
+```sh
+sudo nginx -t
+```
+
+6. **Recarregue o Nginx:**
+
+```sh
+sudo systemctl reload nginx
+# ou
+sudo service nginx reload
+```
+
+## Configuração SSL com Let's Encrypt (Opcional)
+
+Para habilitar HTTPS:
+
+```sh
+# Instalar Certbot
+sudo apt install certbot python3-certbot-nginx
+
+# Obter certificado SSL
+sudo certbot --nginx -d seu-dominio.com -d www.seu-dominio.com
+
+# O Certbot configurará automaticamente o SSL
+```
+
+## Características da Configuração
+
+- **Suporte a WebSocket**: Configurado para Socket.IO funcionar corretamente
+- **Upload de arquivos grandes**: `client_max_body_size` configurado para 50MB
+- **Timeouts aumentados**: Para operações longas do WhatsApp
+- **Balanceamento de carga**: Preparado para múltiplas instâncias (comente/descomente no upstream)
+- **Cache de arquivos estáticos**: Configurado para `/files`
+
+## Verificar Status
+
+```sh
+# Status do Nginx
+sudo systemctl status nginx
+
+# Logs de acesso
+sudo tail -f /var/log/nginx/wppconnect-access.log
+
+# Logs de erro
+sudo tail -f /var/log/nginx/wppconnect-error.log
+```
+
+---
+
+# Variáveis de Ambiente
+
+O projeto suporta configuração via variáveis de ambiente usando arquivo `.env`. Todas as configurações podem ser definidas através de variáveis de ambiente, facilitando o gerenciamento entre ambientes de desenvolvimento e produção.
+
+## Configuração do Arquivo .env
+
+1. **Copie o arquivo de exemplo:**
+
+```sh
+cp .env.example .env
+```
+
+2. **Edite o arquivo `.env`** com suas configurações específicas.
+
+## Variáveis Principais
+
+### Ambiente da Aplicação
+
+```bash
+# development | production | test
+NODE_ENV=development
+```
+
+### Configurações Básicas
+
+```bash
+SECRET_KEY=THISISMYSECURETOKEN  # IMPORTANTE: Altere em produção!
+HOST=http://localhost
+PORT=21465
+DEVICE_NAME=WppConnect
+POWERED_BY=WPPConnect-Server
+```
+
+### Configurações de Log
+
+```bash
+# Níveis: error | warn | info | verbose | debug | silly
+LOG_LEVEL=silly
+
+# Loggers: console,file (separados por vírgula)
+LOG_LOGGER=console,file
+```
+
+### Configurações de Banco de Dados
+
+```bash
+# MongoDB
+MONGODB_DATABASE=tokens
+MONGODB_HOST=localhost
+MONGODB_PORT=27017
+MONGO_IS_REMOTE=false
+MONGO_URL_REMOTE=
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+```
+
+## Uso com PM2
+
+O `ecosystem.config.js` está configurado para passar automaticamente todas as variáveis de ambiente do sistema para o PM2. Isso significa que:
+
+1. **Variáveis definidas no `.env`** serão carregadas automaticamente pelo `dotenv`
+2. **Variáveis passadas para o PM2** estarão disponíveis na aplicação
+3. **Variáveis do sistema** também serão passadas
+
+### Exemplo de uso:
+
+```bash
+# Definir variáveis antes de iniciar
+export NODE_ENV=production
+export PORT=3000
+pm2 start ecosystem.config.js
+
+# Ou usar arquivo .env
+# O dotenv carregará automaticamente as variáveis
+pm2 start ecosystem.config.js
+```
+
+## Variáveis Disponíveis
+
+Consulte o arquivo `.env.example` para ver todas as variáveis de ambiente disponíveis e suas descrições.
+
 ---
 
 # Configuration
