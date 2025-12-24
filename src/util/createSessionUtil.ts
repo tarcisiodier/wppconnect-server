@@ -17,6 +17,10 @@ import { create, SocketState, StatusFind } from '@wppconnect-team/wppconnect';
 import { Request } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 import { download } from '../controller/sessionController';
 import { WhatsAppServer } from '../types/WhatsAppServer';
@@ -57,10 +61,49 @@ export default class CreateSessionUtil {
       this.startChatWootClient(client);
 
       if (req.serverOptions.customUserDataDir) {
-        const userDataDirPath = req.serverOptions.customUserDataDir + session;
+        // Adiciona container ID ao path para evitar conflitos entre containers Docker
+        // Isso garante que cada container tenha seu próprio diretório de perfil
+        const containerId = process.env.HOSTNAME || 'default';
+        const userDataDirPath = req.serverOptions.customUserDataDir + `${session}_${containerId}`;
         
-        // Limpa lock files do Chromium antes de iniciar
+        req.logger?.info(`[${session}] Using userDataDir: ${userDataDirPath} (container: ${containerId})`);
+        
+        // Limpeza agressiva de locks e processos Chromium órfãos
         try {
+          req.logger?.info(`[${session}] Starting aggressive lock cleanup for: ${userDataDirPath}`);
+          
+          // 1. Mata processos Chromium órfãos que possam estar usando o perfil
+          try {
+            // Procura processos Chromium que possam estar usando o userDataDir
+            const killChromiumProcesses = async () => {
+              try {
+                // Tenta encontrar processos Chromium relacionados ao userDataDir
+                const { stdout } = await execAsync(`ps aux | grep -i chromium | grep -v grep || true`);
+                const processes = stdout.trim().split('\n').filter(p => p.includes(userDataDirPath));
+                
+                if (processes.length > 0) {
+                  req.logger?.warn(`[${session}] Found ${processes.length} potential Chromium processes`);
+                  // Tenta matar processos relacionados (cuidado: pode matar processos legítimos)
+                  // Por segurança, apenas logamos por enquanto
+                  processes.forEach((proc: string) => {
+                    const pid = proc.trim().split(/\s+/)[1];
+                    if (pid) {
+                      req.logger?.info(`[${session}] Found Chromium process PID: ${pid}`);
+                      // Não matamos automaticamente para evitar problemas
+                    }
+                  });
+                }
+              } catch (e: any) {
+                // Ignora erros ao procurar processos
+              }
+            };
+            
+            await killChromiumProcesses();
+          } catch (e: any) {
+            req.logger?.warn(`[${session}] Error checking Chromium processes: ${e?.message}`);
+          }
+          
+          // 2. Lista completa de arquivos de lock do Chromium
           const lockFiles = [
             path.join(userDataDirPath, 'SingletonLock'),
             path.join(userDataDirPath, 'lockfile'),
@@ -68,10 +111,11 @@ export default class CreateSessionUtil {
             path.join(userDataDirPath, 'SingletonCookie'),
             path.join(userDataDirPath, 'chrome_debug.log'),
             path.join(userDataDirPath, 'chrome_debug.log.old'),
+            path.join(userDataDirPath, '.org.chromium.Chromium.*'),
           ];
           
-          // Também limpa locks em subdiretórios comuns
-          const subDirs = ['Default', 'Profile 1', 'Profile 2'];
+          // 3. Limpa locks em subdiretórios comuns
+          const subDirs = ['Default', 'Profile 1', 'Profile 2', 'System Profile'];
           subDirs.forEach((subDir) => {
             const subDirPath = path.join(userDataDirPath, subDir);
             if (fs.existsSync(subDirPath)) {
@@ -84,8 +128,10 @@ export default class CreateSessionUtil {
             }
           });
           
-          // Função recursiva para encontrar e remover todos os locks
-          const removeAllLocks = (dir: string) => {
+          // 4. Função recursiva melhorada para encontrar e remover TODOS os locks
+          const removeAllLocks = (dir: string, depth = 0) => {
+            if (depth > 10) return; // Limite de profundidade para evitar loops
+            
             try {
               if (!fs.existsSync(dir)) return;
               
@@ -95,14 +141,22 @@ export default class CreateSessionUtil {
                 try {
                   const stat = fs.statSync(filePath);
                   if (stat.isDirectory()) {
-                    removeAllLocks(filePath);
+                    removeAllLocks(filePath, depth + 1);
                   } else if (
                     file.includes('Singleton') ||
                     file === 'lockfile' ||
-                    file.startsWith('.org.chromium')
+                    file.startsWith('.org.chromium') ||
+                    file.includes('chrome_debug') ||
+                    file.endsWith('.lock')
                   ) {
-                    fs.unlinkSync(filePath);
-                    req.logger?.info(`[${session}] Removed lock: ${filePath}`);
+                    try {
+                      // Tenta remover com permissões completas
+                      fs.chmodSync(filePath, 0o777);
+                      fs.unlinkSync(filePath);
+                      req.logger?.info(`[${session}] Removed lock: ${filePath}`);
+                    } catch (e: any) {
+                      req.logger?.warn(`[${session}] Could not remove ${filePath}: ${e?.message}`);
+                    }
                   }
                 } catch (e) {
                   // Ignora erros ao processar arquivos
@@ -113,49 +167,71 @@ export default class CreateSessionUtil {
             }
           };
           
+          // 5. Remove locks específicos com múltiplas tentativas
           let removedCount = 0;
-          lockFiles.forEach((lockFile) => {
+          const maxAttempts = 3;
+          
+          for (const lockFile of lockFiles) {
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              try {
+                if (fs.existsSync(lockFile)) {
+                  // Tenta remover com diferentes estratégias
+                  try {
+                    fs.chmodSync(lockFile, 0o777);
+                    fs.unlinkSync(lockFile);
+                    removedCount++;
+                    req.logger?.info(`[${session}] Removed lock file (attempt ${attempt}): ${lockFile}`);
+                    break; // Sucesso, sai do loop de tentativas
+                  } catch (e: any) {
+                    if (attempt === maxAttempts) {
+                      req.logger?.warn(`[${session}] Failed to remove ${lockFile} after ${maxAttempts} attempts: ${e?.message}`);
+                    } else {
+                      // Aguarda um pouco antes de tentar novamente
+                      await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                  }
+                } else {
+                  break; // Arquivo não existe, não precisa tentar mais
+                }
+              } catch (e: any) {
+                if (attempt === maxAttempts) {
+                  req.logger?.warn(`[${session}] Error processing ${lockFile}: ${e?.message}`);
+                }
+              }
+            }
+          }
+          
+          // 6. Limpeza recursiva adicional
+          removeAllLocks(userDataDirPath);
+          
+          // 7. Remove diretórios de lock se existirem
+          const lockDirs = [
+            path.join(userDataDirPath, 'SingletonLock'),
+            path.join(userDataDirPath, '.org.chromium.Chromium'),
+          ];
+          
+          lockDirs.forEach((lockDir) => {
             try {
-              if (fs.existsSync(lockFile)) {
-                // Tenta remover o arquivo
-                fs.unlinkSync(lockFile);
-                removedCount++;
-                req.logger?.info(`[${session}] Removed lock file: ${lockFile}`);
+              if (fs.existsSync(lockDir) && fs.statSync(lockDir).isDirectory()) {
+                fs.chmodSync(lockDir, 0o777);
+                fs.rmSync(lockDir, { recursive: true, force: true });
+                req.logger?.info(`[${session}] Removed lock directory: ${lockDir}`);
               }
             } catch (e: any) {
-              // Se não conseguir remover, tenta forçar a remoção
-              try {
-                fs.chmodSync(lockFile, 0o666);
-                fs.unlinkSync(lockFile);
-                removedCount++;
-                req.logger?.info(`[${session}] Force removed lock file: ${lockFile}`);
-              } catch (e2: any) {
-                req.logger?.warn(`[${session}] Failed to remove lock file ${lockFile}: ${e2?.message}`);
-              }
+              req.logger?.warn(`[${session}] Failed to remove lock directory ${lockDir}: ${e?.message}`);
             }
           });
           
-          // Limpeza recursiva adicional para garantir que todos os locks sejam removidos
-          removeAllLocks(userDataDirPath);
-          
-          // Tenta limpar o diretório de lock se existir
-          const lockDir = path.join(userDataDirPath, 'SingletonLock');
-          if (fs.existsSync(lockDir) && fs.statSync(lockDir).isDirectory()) {
-            try {
-              fs.rmSync(lockDir, { recursive: true, force: true });
-              req.logger?.info(`[${session}] Removed lock directory: ${lockDir}`);
-            } catch (e: any) {
-              req.logger?.warn(`[${session}] Failed to remove lock directory: ${e?.message}`);
-            }
-          }
-          
+          // 8. Delay maior para garantir sincronização do filesystem
           if (removedCount > 0 || fs.existsSync(userDataDirPath)) {
-            req.logger?.info(`[${session}] Cleaned locks, waiting for filesystem sync...`);
-            // Delay maior para garantir que os locks foram completamente liberados
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            req.logger?.info(`[${session}] Cleaned ${removedCount} lock file(s), waiting for filesystem sync...`);
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Aumentado para 3 segundos
           }
+          
+          req.logger?.info(`[${session}] Lock cleanup completed`);
         } catch (e: any) {
-          req.logger?.warn(`[${session}] Error cleaning locks: ${e?.message}`);
+          req.logger?.error(`[${session}] Error during lock cleanup: ${e?.message}`);
+          // Mesmo com erro, continua tentando iniciar
         }
         
         req.serverOptions.createOptions.puppeteerOptions = {

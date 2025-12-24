@@ -160,7 +160,9 @@ export async function clearSessionData(req: Request, res: Response) {
       delete clientsArray[req.params.session];
       await req.client.logout();
     }
-    const path = config.customUserDataDir + session;
+    // Usa o mesmo padrão de container ID usado na criação da sessão
+    const containerId = process.env.HOSTNAME || 'default';
+    const path = config.customUserDataDir + `${session}_${containerId}`;
     const pathToken = __dirname + `../../../tokens/${session}.data.json`;
     if (fs.existsSync(path)) {
       await fs.promises.rm(path, {

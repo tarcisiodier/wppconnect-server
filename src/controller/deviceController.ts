@@ -1897,16 +1897,21 @@ export async function getContact(req: Request, res: Response) {
 export async function getAllContacts(req: Request, res: Response) {
   /**
    * #swagger.tags = ["Contact"]
-     #swagger.autoBody=false
-     #swagger.security = [{
-            "bearerAuth": []
-     }]
-     #swagger.parameters["session"] = {
-      schema: 'NERDWHATS_AMERICA'
-     }
+   * #swagger.autoBody=false
+   * #swagger.security = [{
+   *        "bearerAuth": []
+   * }]
+   * #swagger.parameters["session"] = {
+   *  schema: 'NERDWHATS_AMERICA'
+   * }
    */
   try {
-    const response = await req.client.getAllContacts();
+    const response = await (req.client as any).page.evaluate(() => {
+      // @ts-ignore
+      const contacts = WPP.whatsapp.ContactStore.getModelsArray();
+      // @ts-ignore
+      return contacts.map((c) => c.attributes);
+    });
 
     res.status(200).json({ status: 'success', response: response });
   } catch (error) {

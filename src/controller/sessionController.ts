@@ -254,16 +254,28 @@ export async function closeSession(req: Request, res: Response): Promise<any> {
    */
   const session = req.session;
   try {
-    if ((clientsArray as any)[session].status === null) {
+    const client = req.client || (clientsArray as any)[session];
+    
+    if (!client || (client.status === null)) {
       return await res
         .status(200)
         .json({ status: true, message: 'Session successfully closed' });
     } else {
       (clientsArray as any)[session] = { status: null };
 
-      await req.client.close();
+      // Fecha o browser corretamente
+      try {
+        if (client.close && typeof client.close === 'function') {
+          await client.close();
+        } else if ((client as any).page && (client as any).page.browser) {
+          await (client as any).page.browser().close();
+        }
+      } catch (closeError: any) {
+        req.logger.warn(`Error closing browser: ${closeError?.message}`);
+      }
+
       req.io.emit('whatsapp-status', false);
-      callWebHook(req.client, req, 'closesession', {
+      callWebHook(client, req, 'closesession', {
         message: `Session: ${session} disconnected`,
         connected: false,
       });
@@ -299,7 +311,9 @@ export async function logOutSession(req: Request, res: Response): Promise<any> {
     deleteSessionOnArray(req.session);
 
     setTimeout(async () => {
-      const pathUserData = config.customUserDataDir + req.session;
+      // Usa o mesmo padrão de container ID usado na criação da sessão
+      const containerId = process.env.HOSTNAME || 'default';
+      const pathUserData = config.customUserDataDir + `${req.session}_${containerId}`;
       const pathTokens = __dirname + `../../../tokens/${req.session}.data.json`;
 
       if (fs.existsSync(pathUserData)) {

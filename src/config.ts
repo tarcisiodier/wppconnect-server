@@ -80,14 +80,31 @@ export default {
       '--disable-background-timer-throttling',
       '--disable-renderer-backgrounding',
       '--disable-backgrounding-occluded-windows',
-      '--disable-features=LeakyPeeker', // Prevents browser sleep mode, avoiding crashes
-      '--disable-component-update', // Prevents component updates that can cause navigation
-      '--disable-features=TranslateUI', // Disables translation UI that can cause navigation
-      '--disable-features=AutofillServerCommunication', // Disables autofill server communication
-      '--disable-features=MediaRouter', // Disables media router
-      '--disable-features=OptimizationHints', // Disables optimization hints
-      '--disable-features=InterestFeedContentSuggestions', // Disables interest feed
-      '--disable-features=InterestCohortAPI', // Disables interest cohort API
+      // '--disable-features=LeakyPeeker', // Prevents browser sleep mode, avoiding crashes
+      // '--disable-component-update', // Prevents component updates that can cause navigation
+      // '--disable-features=TranslateUI', // Disables translation UI that can cause navigation
+      // '--disable-features=AutofillServerCommunication', // Disables autofill server communication
+      // '--disable-features=MediaRouter', // Disables media router
+      // '--disable-features=OptimizationHints', // Disables optimization hints
+      // '--disable-features=InterestFeedContentSuggestions', // Disables interest feed
+      // '--disable-features=InterestCohortAPI', // Disables interest cohort API
+      // '--disable-features=ProcessPerSite', // Disables process per site
+      // '--disable-features=SitePerProcess', // Disables site per process
+      // '--disable-features=IsolateOrigins', // Disables origin isolation
+      // '--disable-site-isolation-trials', // Disables site isolation trials
+      // '--no-pings', // Disables pings
+      // '--disable-hang-monitor', // Disables hang monitor
+      // '--disable-prompt-on-repost', // Disables prompt on repost
+      // '--disable-domain-reliability', // Disables domain reliability
+      // '--disable-client-side-phishing-detection', // Disables client-side phishing detection
+      // '--disable-features=ChromeWhatsNewUI', // Disables Chrome What's New UI
+      // '--disable-features=ChromeLabs', // Disables Chrome Labs
+      // '--disable-features=ChromeWhatsNew', // Disables Chrome What's New
+      // '--disable-breakpad', // Disables crash reporting
+      // '--disable-crash-reporter', // Disables crash reporter
+      // '--disable-logging', // Disables logging
+      // '--silent', // Silent mode
+      // '--log-level=0', // Minimum log level
     ],
     puppeteerOptions: {
       headless: true,
