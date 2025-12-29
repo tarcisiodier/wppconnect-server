@@ -285,7 +285,19 @@ export default class CreateSessionUtil {
   async listenMessages(client: WhatsAppServer, req: Request) {
     await client.onMessage(async (message: any) => {
       eventEmitter.emit(`mensagem-${client.session}`, client, message);
-      callWebHook(client, req, 'onmessage', message);
+
+      // Only send to webhook if not from a group
+      const isGroup = message.from?.endsWith('@g.us') || message.chatId?.endsWith('@g.us');
+      if (!isGroup) {
+        callWebHook(client, req, 'onmessage', message);
+      } else {
+        req.logger.debug('Skipping webhook for group message (onmessage)', {
+          from: message.from,
+          chatId: message.chatId,
+          fromMe: message.fromMe
+        });
+      }
+
       if (message.type === 'location')
         client.onLiveLocation(message.sender.id, (location) => {
           callWebHook(client, req, 'location', location);
@@ -310,7 +322,18 @@ export default class CreateSessionUtil {
 
       // Only call webhook for self messages if configured
       if (req.serverOptions.webhook.onSelfMessage && message.fromMe) {
-        // Check if should filter API-sent messages
+        // Filter 1: Check if it's a group message
+        const isGroup = message.from?.endsWith('@g.us') || message.chatId?.endsWith('@g.us');
+        if (isGroup) {
+          req.logger.debug('Skipping webhook for group self message', {
+            from: message.from,
+            chatId: message.chatId,
+            messageId: message?.id?.id
+          });
+          return;
+        }
+
+        // Filter 2: Check if should filter API-sent messages
         const isApiMessage = message?.id?.id?.startsWith('3EB0');
         const shouldFilterApi = !req.serverOptions.webhook.sendApi && isApiMessage;
 
