@@ -6,11 +6,35 @@ services:
     restart: unless-stopped
     build:
       context: .
+    env_file:
+      - .env
+    environment:
+      - DB_MONGODB_HOST=mongo
+      - DB_REDIS_HOST=redis
+    depends_on:
+      - mongo
+      - redis
     volumes:
-      - ./config.ts:/usr/src/wpp-server/config.ts
       - ./wppconnect_tokens:/usr/src/wpp-server/tokens
+      - ./userDataDir:/usr/src/wpp-server/userDataDir
     ports:
-      - "21465:21465"
+      - "${PORT:-21465}:21465"
+
+  mongo:
+    image: mongo:latest
+    container_name: wpp-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:latest
+    container_name: wpp-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
 
 volumes:
-  wppconnect_tokens: {}      
+  wppconnect_tokens: {}
+  mongo_data: {}
+  redis_data: {}
