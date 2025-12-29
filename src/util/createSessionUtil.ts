@@ -305,8 +305,29 @@ export default class CreateSessionUtil {
       }
 
       req.io.emit('received-message', { response: message });
-      if (req.serverOptions.webhook.onSelfMessage && message.fromMe)
-        callWebHook(client, req, 'onselfmessage', message);
+
+      // Only call webhook for self messages if configured
+      if (req.serverOptions.webhook.onSelfMessage && message.fromMe) {
+        // Check if should filter API-sent messages
+        const isApiMessage = message?.id?.id?.startsWith('3EB0');
+        const shouldFilterApi = !req.serverOptions.webhook.sendApi && isApiMessage;
+
+        if (!shouldFilterApi) {
+          req.logger.debug('Calling webhook for self message', {
+            onSelfMessage: req.serverOptions.webhook.onSelfMessage,
+            sendApi: req.serverOptions.webhook.sendApi,
+            fromMe: message.fromMe,
+            messageId: message?.id?.id,
+            isApiMessage: isApiMessage
+          });
+          callWebHook(client, req, 'onselfmessage', message);
+        } else {
+          req.logger.debug('Skipping webhook for API-sent self message', {
+            sendApi: req.serverOptions.webhook.sendApi,
+            messageId: message?.id?.id
+          });
+        }
+      }
     });
 
     await client.onIncomingCall(async (call) => {

@@ -131,12 +131,21 @@ export async function callWebHook(
     )
       return;
 
-    if (
+    // Debug: Log webhook filter conditions
+    const shouldFilterApiMessage =
       !req.serverOptions.webhook.sendApi &&
       data?.fromMe &&
-      data?.id?.id?.startsWith('3EB0')
-    )
+      data?.id?.id?.startsWith('3EB0');
+
+    if (shouldFilterApiMessage) {
+      req.logger.debug('Filtering API-sent message from webhook', {
+        sendApi: req.serverOptions.webhook.sendApi,
+        fromMe: data?.fromMe,
+        messageId: data?.id?.id,
+        event: event
+      });
       return;
+    }
     if (req.serverOptions.webhook.autoDownload)
       await autoDownload(client, req, data);
     try {
