@@ -123,7 +123,19 @@ export async function callWebHook(
   const webhook =
     client?.config.webhook || req.serverOptions.webhook.url || false;
   if (webhook) {
-    // Filter 1: Check if it's an API-sent message (highest priority)
+    // Filter 1: NEVER send group messages to webhook (highest priority)
+    const isGroup = data?.from?.endsWith('@g.us') || data?.chatId?.endsWith('@g.us');
+    if (isGroup) {
+      req.logger.debug('Blocking group message from webhook', {
+        event,
+        from: data?.from,
+        chatId: data?.chatId,
+        fromMe: data?.fromMe
+      });
+      return;
+    }
+
+    // Filter 2: Check if it's an API-sent message
     const shouldFilterApiMessage =
       !req.serverOptions.webhook.sendApi &&
       data?.fromMe &&
@@ -139,9 +151,8 @@ export async function callWebHook(
       return;
     }
 
-    // Filter 2: Check ignore list (but skip for self messages)
-    // This allows user's own messages to groups while blocking others
-    if (req.serverOptions.webhook?.ignore && !data?.fromMe) {
+    // Filter 3: Check ignore list (for other patterns like status@broadcast)
+    if (req.serverOptions.webhook?.ignore) {
       const shouldIgnore = req.serverOptions.webhook.ignore.some((pattern: string) => {
         return (
           event === pattern ||
@@ -152,12 +163,11 @@ export async function callWebHook(
         );
       });
       if (shouldIgnore) {
-        req.logger.debug('Ignoring webhook due to ignore pattern (not self message)', {
+        req.logger.debug('Ignoring webhook due to ignore pattern', {
           event,
           from: data?.from,
           chatId: data?.chatId,
-          type: data?.type,
-          fromMe: data?.fromMe
+          type: data?.type
         });
         return;
       }
