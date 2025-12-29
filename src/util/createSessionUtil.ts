@@ -334,7 +334,12 @@ export default class CreateSessionUtil {
         }
 
         // Filter 2: Check if should filter API-sent messages
-        const isApiMessage = message?.id?.id?.startsWith('3EB0');
+        // API messages have ID format: true_PHONE@c.us_3EB0XXXXXXXX
+        // We need to check the last part after the last underscore
+        const messageId = message?.id?.id || message?.id?._serialized || '';
+        const idParts = messageId.split('_');
+        const lastPart = idParts[idParts.length - 1] || '';
+        const isApiMessage = lastPart.startsWith('3EB0');
         const shouldFilterApi = !req.serverOptions.webhook.sendApi && isApiMessage;
 
         if (!shouldFilterApi) {
