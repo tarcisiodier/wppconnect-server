@@ -136,10 +136,16 @@ export async function callWebHook(
     }
 
     // Filter 2: Check if it's an API-sent message
+    // API messages have ID format: true_PHONE@c.us_3EB0XXXXXXXX
+    // We need to check the last part after the last underscore
+    const messageId = data?.id?.id || data?.id?._serialized || '';
+    const idParts = messageId.split('_');
+    const lastPart = idParts[idParts.length - 1] || '';
+    const isApiMessage = lastPart.startsWith('3EB0');
     const shouldFilterApiMessage =
       !req.serverOptions.webhook.sendApi &&
       data?.fromMe &&
-      data?.id?.id?.startsWith('3EB0');
+      isApiMessage;
 
     if (shouldFilterApiMessage) {
       req.logger.debug('Filtering API-sent message from webhook', {
