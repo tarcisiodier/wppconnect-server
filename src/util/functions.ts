@@ -130,6 +130,13 @@ export async function callWebHook(
         req.serverOptions.webhook.ignore.includes(data?.type))
     )
       return;
+
+    if (
+      !req.serverOptions.webhook.sendApi &&
+      data?.fromMe &&
+      data?.id?.id?.startsWith('3EB0')
+    )
+      return;
     if (req.serverOptions.webhook.autoDownload)
       await autoDownload(client, req, data);
     try {

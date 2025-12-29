@@ -24,6 +24,7 @@ export default {
     onRevokedMessage: process.env.WEBHOOK_ON_REVOKED_MESSAGE ? process.env.WEBHOOK_ON_REVOKED_MESSAGE === 'true' : true,
     onLabelUpdated: process.env.WEBHOOK_ON_LABEL_UPDATED ? process.env.WEBHOOK_ON_LABEL_UPDATED === 'true' : true,
     onSelfMessage: process.env.WEBHOOK_ON_SELF_MESSAGE ? process.env.WEBHOOK_ON_SELF_MESSAGE === 'true' : false,
+    sendApi: process.env.WEBHOOK_SEND_API ? process.env.WEBHOOK_SEND_API === 'true' : false,
     ignore: process.env.WEBHOOK_IGNORE ? process.env.WEBHOOK_IGNORE.split(',') : ['status@broadcast'],
   },
   websocket: {
