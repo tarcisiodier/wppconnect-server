@@ -16,6 +16,7 @@ services:
     #   - redis
     volumes:
       - ./wppconnect_tokens:/usr/src/wpp-server/tokens
+      - ./wppconnect_userdata:/usr/src/wpp-server/userDataDir
     ports:
       - "${PORT:-21465}:21465"
 
