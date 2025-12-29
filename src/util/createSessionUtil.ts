@@ -55,8 +55,10 @@ export default class CreateSessionUtil {
       this.startChatWootClient(client);
 
       if (req.serverOptions.customUserDataDir) {
+        // Fix potential path issue if trailing slash is missing
+        const path = require('path');
         req.serverOptions.createOptions.puppeteerOptions = {
-          userDataDir: req.serverOptions.customUserDataDir + session,
+          userDataDir: path.join(req.serverOptions.customUserDataDir, session),
         };
       }
 
