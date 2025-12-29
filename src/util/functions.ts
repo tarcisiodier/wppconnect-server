@@ -136,12 +136,9 @@ export async function callWebHook(
     }
 
     // Filter 2: Check if it's an API-sent message
-    // API messages have ID format: true_PHONE@c.us_3EB0XXXXXXXX
-    // We need to check the last part after the last underscore
-    const messageId = data?.id?.id || data?.id?._serialized || '';
-    const idParts = messageId.split('_');
-    const lastPart = idParts[idParts.length - 1] || '';
-    const isApiMessage = lastPart.startsWith('3EB0');
+    // API messages have ack=0 (not sent to server yet)
+    // App/Web messages have ack=1 (already sent to server)
+    const isApiMessage = data?.ack === 0;
     const shouldFilterApiMessage =
       !req.serverOptions.webhook.sendApi &&
       data?.fromMe &&
