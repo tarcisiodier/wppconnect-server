@@ -123,13 +123,27 @@ export async function callWebHook(
   const webhook =
     client?.config.webhook || req.serverOptions.webhook.url || false;
   if (webhook) {
-    if (
-      req.serverOptions.webhook?.ignore &&
-      (req.serverOptions.webhook.ignore.includes(event) ||
-        req.serverOptions.webhook.ignore.includes(data?.from) ||
-        req.serverOptions.webhook.ignore.includes(data?.type))
-    )
-      return;
+    // Check ignore list (supports exact match and patterns like @g.us)
+    if (req.serverOptions.webhook?.ignore) {
+      const shouldIgnore = req.serverOptions.webhook.ignore.some((pattern: string) => {
+        return (
+          event === pattern ||
+          data?.type === pattern ||
+          data?.from === pattern ||
+          data?.from?.endsWith(pattern) ||
+          data?.chatId?.endsWith(pattern)
+        );
+      });
+      if (shouldIgnore) {
+        req.logger.debug('Ignoring webhook due to ignore pattern', {
+          event,
+          from: data?.from,
+          chatId: data?.chatId,
+          type: data?.type
+        });
+        return;
+      }
+    }
 
     // Debug: Log webhook filter conditions
     const shouldFilterApiMessage =
