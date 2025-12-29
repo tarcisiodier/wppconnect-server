@@ -123,29 +123,7 @@ export async function callWebHook(
   const webhook =
     client?.config.webhook || req.serverOptions.webhook.url || false;
   if (webhook) {
-    // Check ignore list (supports exact match and patterns like @g.us)
-    if (req.serverOptions.webhook?.ignore) {
-      const shouldIgnore = req.serverOptions.webhook.ignore.some((pattern: string) => {
-        return (
-          event === pattern ||
-          data?.type === pattern ||
-          data?.from === pattern ||
-          data?.from?.endsWith(pattern) ||
-          data?.chatId?.endsWith(pattern)
-        );
-      });
-      if (shouldIgnore) {
-        req.logger.debug('Ignoring webhook due to ignore pattern', {
-          event,
-          from: data?.from,
-          chatId: data?.chatId,
-          type: data?.type
-        });
-        return;
-      }
-    }
-
-    // Debug: Log webhook filter conditions
+    // Filter 1: Check if it's an API-sent message (highest priority)
     const shouldFilterApiMessage =
       !req.serverOptions.webhook.sendApi &&
       data?.fromMe &&
@@ -159,6 +137,30 @@ export async function callWebHook(
         event: event
       });
       return;
+    }
+
+    // Filter 2: Check ignore list (but skip for self messages)
+    // This allows user's own messages to groups while blocking others
+    if (req.serverOptions.webhook?.ignore && !data?.fromMe) {
+      const shouldIgnore = req.serverOptions.webhook.ignore.some((pattern: string) => {
+        return (
+          event === pattern ||
+          data?.type === pattern ||
+          data?.from === pattern ||
+          data?.from?.endsWith(pattern) ||
+          data?.chatId?.endsWith(pattern)
+        );
+      });
+      if (shouldIgnore) {
+        req.logger.debug('Ignoring webhook due to ignore pattern (not self message)', {
+          event,
+          from: data?.from,
+          chatId: data?.chatId,
+          type: data?.type,
+          fromMe: data?.fromMe
+        });
+        return;
+      }
     }
     if (req.serverOptions.webhook.autoDownload)
       await autoDownload(client, req, data);
