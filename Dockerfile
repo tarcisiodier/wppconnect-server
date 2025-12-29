@@ -39,11 +39,15 @@ RUN yarn build
 FROM build AS runtime
 WORKDIR /usr/src/wpp-server/
 
-# Install runtime dependencies (chromium and vips libraries)
+# Install runtime dependencies (chromium, vips, and PM2)
 RUN apk add --no-cache \
     chromium \
     vips \
-    fftw
+    fftw && \
+    npm install -g pm2
+
+# Copy PM2 ecosystem config
+COPY ecosystem.config.js ./
 
 # Copy and set up entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
@@ -51,4 +55,4 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 21465
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["node", "dist/server.js"]
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]
