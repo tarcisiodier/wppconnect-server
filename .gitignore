@@ -22,5 +22,5 @@ userDataDir
 .yarn/install-state.gz
 backupFolder
 tokens/*
-wppconnect_tokens/*wppconnect_userdata/
 wppconnect_tokens/*
+wppconnect_userdata/*
