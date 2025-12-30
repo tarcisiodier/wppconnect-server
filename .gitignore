@@ -24,3 +24,32 @@ backupFolder
 tokens/*
 wppconnect_tokens/*
 wppconnect_userdata/*
+
+# Security - Certificates and Keys
+*.pem
+*.key
+*.crt
+*.p12
+*.cer
+*.der
+*.pfx
+
+# System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing & Coverage
+coverage/
+.nyc_output/
