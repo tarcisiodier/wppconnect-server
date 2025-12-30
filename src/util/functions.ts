@@ -135,6 +135,18 @@ export async function callWebHook(
       return;
     }
 
+    // Filter 1.5: NEVER send newsletter/channel messages to webhook
+    const isNewsletter = data?.from?.endsWith('@newsletter') || data?.chatId?.endsWith('@newsletter');
+    if (isNewsletter) {
+      req.logger.debug('Blocking newsletter/channel message from webhook', {
+        event,
+        from: data?.from,
+        chatId: data?.chatId,
+        fromMe: data?.fromMe
+      });
+      return;
+    }
+
     // Filter 2: Check if it's an API-sent message
     // API messages have ack=0 (not sent to server yet)
     // App/Web messages have ack=1 (already sent to server)
@@ -185,8 +197,19 @@ export async function callWebHook(
       data = Object.assign({ event: event, session: client.session }, data);
       if (req.serverOptions.mapper.enable)
         data = await convert(req.serverOptions.mapper.prefix, data);
+
+      const headers: any = {};
+      if (req.serverOptions.webhook.globalXToken) {
+        headers['x-token'] = req.serverOptions.webhook.globalXToken;
+        req.logger.info(`[Webhook] Adding x-token header: ${req.serverOptions.webhook.globalXToken.substring(0, 10)}...`);
+      } else {
+        req.logger.warn(`[Webhook] No globalXToken found in server options`);
+      }
+
+      req.logger.info(`[Webhook] Sending ${event} to ${webhook} with headers:`, Object.keys(headers));
+
       api
-        .post(webhook, data)
+        .post(webhook, data, { headers })
         .then(() => {
           try {
             const events = ['unreadmessages', 'onmessage'];

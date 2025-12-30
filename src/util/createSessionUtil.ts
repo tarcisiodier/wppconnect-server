@@ -286,15 +286,19 @@ export default class CreateSessionUtil {
     await client.onMessage(async (message: any) => {
       eventEmitter.emit(`mensagem-${client.session}`, client, message);
 
-      // Only send to webhook if not from a group
+      // Only send to webhook if not from a group or newsletter
       const isGroup = message.from?.endsWith('@g.us') || message.chatId?.endsWith('@g.us');
-      if (!isGroup) {
+      const isNewsletter = message.from?.endsWith('@newsletter') || message.chatId?.endsWith('@newsletter');
+
+      if (!isGroup && !isNewsletter) {
         callWebHook(client, req, 'onmessage', message);
       } else {
-        req.logger.debug('Skipping webhook for group message (onmessage)', {
+        req.logger.debug('Skipping webhook for group/newsletter message (onmessage)', {
           from: message.from,
           chatId: message.chatId,
-          fromMe: message.fromMe
+          fromMe: message.fromMe,
+          isGroup,
+          isNewsletter
         });
       }
 
@@ -326,6 +330,17 @@ export default class CreateSessionUtil {
         const isGroup = message.from?.endsWith('@g.us') || message.chatId?.endsWith('@g.us');
         if (isGroup) {
           req.logger.debug('Skipping webhook for group self message', {
+            from: message.from,
+            chatId: message.chatId,
+            messageId: message?.id?.id
+          });
+          return;
+        }
+
+        // Filter 1.5: Check if it's a newsletter/channel message
+        const isNewsletter = message.from?.endsWith('@newsletter') || message.chatId?.endsWith('@newsletter');
+        if (isNewsletter) {
+          req.logger.debug('Skipping webhook for newsletter self message', {
             from: message.from,
             chatId: message.chatId,
             messageId: message?.id?.id
