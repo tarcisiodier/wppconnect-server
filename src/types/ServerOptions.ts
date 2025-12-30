@@ -25,6 +25,7 @@ export interface ServerOptions {
     onRevokedMessage: boolean;
     onSelfMessage: boolean;
     sendApi: boolean;
+    globalXToken?: string;
     ignore: string[];
   };
   websocket: {

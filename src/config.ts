@@ -25,6 +25,7 @@ export default {
     onLabelUpdated: process.env.WEBHOOK_ON_LABEL_UPDATED ? process.env.WEBHOOK_ON_LABEL_UPDATED === 'true' : true,
     onSelfMessage: process.env.WEBHOOK_ON_SELF_MESSAGE ? process.env.WEBHOOK_ON_SELF_MESSAGE === 'true' : false,
     sendApi: process.env.WEBHOOK_SEND_API ? process.env.WEBHOOK_SEND_API === 'true' : false,
+    globalXToken: process.env.WEBHOOK_GLOBAL_X_TOKEN || undefined,
     ignore: process.env.WEBHOOK_IGNORE ? process.env.WEBHOOK_IGNORE.split(',') : ['status@broadcast'],
   },
   websocket: {
