@@ -17,13 +17,14 @@
 *.tgz
 *.zip
 /.idea
-userDataDir
 /yarn-error.log
 .yarn/install-state.gz
 backupFolder
 tokens/*
 wppconnect_tokens/*
+!wppconnect_tokens/.gitkeep
 wppconnect_userdata/*
+!wppconnect_userdata/.gitkeep
 
 # Security - Certificates and Keys
 *.pem
