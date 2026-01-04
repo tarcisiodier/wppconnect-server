@@ -23,14 +23,10 @@ services:
     restart: unless-stopped
     command: redis-server --requirepass ${DB_REDIS_PASSWORD} --appendonly yes
     ports:
-      - "127.0.0.1:6380:6379"  # Externa 6380, interna 6379
+      - "6379:6379"  # Externa 6380, interna 6379
   volumes:
     - redis_data:/data
-  healthcheck:
-    test: ["CMD", "redis-cli", "-a", "${DB_REDIS_PASSWORD}", "ping"]
-    interval: 30s
-    timeout: 10s
-    retries: 3
+
 
 volumes:
   wppconnect_tokens: {}
