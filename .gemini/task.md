@@ -15,6 +15,9 @@
 - [x] Debug Graceful Shutdown
     - [x] Update src/index.ts to return http server
     - [x] Update src/server.ts to use correct server instance and logger
+    - [x] Verify
+- [x] Refine Webhook Data
+    - [x] Switch to getPnLidEntry in src/util/createSessionUtil.ts
     - [x] Verify fix
 - [x] Enrich Webhook Data
     - [x] Plan

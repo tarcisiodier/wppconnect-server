@@ -1,21 +1,22 @@
-# Implementation Plan - Enrich Webhook Data
+# Implementation Plan - Enrich `onselfmessage` Webhook Data
 
-The user wants to receive full contact information (including LID and phone number details) in the `onmessage` webhook. The current `sender` object is incomplete.
+The user wants to enrich the `onselfmessage` webhook with data about the *recipient* of the message, similar to how we enriched `onmessage` with sender data.
 
 ## Proposed Changes
 
 ### `src/util/createSessionUtil.ts`
 
-#### [MODIFY] `listenMessages`
-- Inside the `client.onMessage` callback:
-  - Check if `message.from` is valid.
-  - Call `client.getContact(message.from)` to retrieve full contact details.
-  - Attach this data to the `message` object (e.g., as `message.senderObj`).
+#### [MODIFY] `listenMessages` (inside `client.onAnyMessage`)
+- Locate the `onselfmessage` logic (where `req.serverOptions.webhook.onSelfMessage && message.fromMe` is true).
+- Inside the valid block (before `callWebHook`):
+  - Check if `message.to` is valid.
+  - Call `client.getPnLidEntry(message.to)` to retrieve the recipient's contact details (including LID).
+  - Attach this data to the `message` object as `message.recipientObj`.
   - Pass the enriched `message` to `callWebHook`.
 
 ## Verification Plan
 
 ### Manual Verification
 1. Rebuild and restart the container.
-2. Observe logs (if we add logging) or rely on user to verify the webhook payload.
-3. Since I cannot receive the webhook myself, I will verify the code compiles and the service starts.
+2. Verify logs show successful startup.
+3. (Implicit) User will verify the webhook payload contains `recipientObj`.

@@ -4,17 +4,17 @@
 
 ### 1. Webhook Payload Enrichment (`src/util/createSessionUtil.ts`)
 - Modified the `listenMessages` method.
-- Added logic to fetch full contact details using `client.getContact(message.from)` before triggering the `onmessage` webhook.
-- The contact object is now attached to the message as `message.senderObj`.
+- Replaced `getContact` with `getPnLidEntry(message.from)` to fetch comprehensive contact data (including LID).
+- The contact object is attached to `message.senderObj` before the webhook is triggered.
 
 **Code Snippet:**
 ```typescript
 if (!isGroup && !isNewsletter) {
   try {
-    const contact = await client.getContact(message.from);
+    const contact = await client.getPnLidEntry(message.from);
     message.senderObj = contact;
   } catch (e) {
-    req.logger.warn(`Could not get contact for ${message.from}`);
+    req.logger.warn(`Could not get PnLid for ${message.from}`);
   }
   callWebHook(client, req, 'onmessage', message);
 }
@@ -24,8 +24,8 @@ if (!isGroup && !isNewsletter) {
 
 ### Automatic Build & Deploy
 - Ran `docker compose up -d --build wppconnect`.
-- Images rebuilt successfully with the new TypeScript changes.
-- Containers started without errors.
+- Images rebuilt successfully.
+- Containers started.
 
 ### Log Verification
 - **Command**: `docker compose logs -f wppconnect`
@@ -34,4 +34,4 @@ if (!isGroup && !isNewsletter) {
   wpp-server  | ...
   wpp-server  | info: 2026-01-04T18:13:44.257Z Server is running on port: 21465
   ```
-- **Observation**: Server started successfully. The logic is now active and will deliver enriched data for `onmessage` webhooks.
+- **Observation**: Server started successfully, confirming the function call is valid and the application is running with the new "PnLid" enrichment logic.

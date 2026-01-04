@@ -292,10 +292,10 @@ export default class CreateSessionUtil {
 
       if (!isGroup && !isNewsletter) {
         try {
-          const contact = await client.getContact(message.from);
+          const contact = await client.getPnLidEntry(message.from);
           message.senderObj = contact;
         } catch (e) {
-          req.logger.warn(`Could not get contact for ${message.from}`);
+          req.logger.warn(`Could not get PnLid for ${message.from}`);
         }
         callWebHook(client, req, 'onmessage', message);
       } else {
@@ -368,6 +368,16 @@ export default class CreateSessionUtil {
             messageId: message?.id?.id,
             isApiMessage: isApiMessage
           });
+
+          try {
+            if (message.to) {
+              const contact = await client.getPnLidEntry(message.to);
+              message.recipientObj = contact;
+            }
+          } catch (e) {
+            req.logger.warn(`Could not get PnLid for recipient ${message.to}`);
+          }
+          
           callWebHook(client, req, 'onselfmessage', message);
         } else {
           req.logger.debug('Skipping webhook for API-sent self message', {
