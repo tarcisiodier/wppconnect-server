@@ -9,12 +9,11 @@ services:
     ports:
       - "21465:21465"
     volumes:
-      - ./wppconnect_tokens:/usr/src/wpp-server/tokens
-      - ./wppconnect_userdata:/usr/src/wpp-server/userDataDir
-      - ./logs:/usr/src/wpp-server/logs
+      - wppconnect_tokens:/usr/src/wpp-server/tokens
+      - wppconnect_userdata:/usr/src/wpp-server/userDataDir
+      - wpp_logs:/usr/src/wpp-server/logs
     depends_on:
       - wpp-redis
-    # Graceful shutdown timeout
     stop_grace_period: 30s
     
   wpp-redis:
@@ -23,11 +22,15 @@ services:
     restart: unless-stopped
     command: redis-server --requirepass ${DB_REDIS_PASSWORD} --appendonly yes
     ports:
-      - "6379:6379"  # Externa 6380, interna 6379
-  volumes:
-    - redis_data:/data
-
-
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - redis_data:/data
 volumes:
-  wppconnect_tokens: {}
-  redis_data: {}
+  wppconnect_tokens:
+    driver: local
+  wppconnect_userdata:
+    driver: local
+  wpp_logs:
+    driver: local
+  redis_data:
+    driver: local
