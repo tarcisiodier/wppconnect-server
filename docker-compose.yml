@@ -6,11 +6,8 @@ services:
       context: .
     env_file:
       - .env
-    deploy:
-      resources:
-        limits:
-          memory: 6GB
-          cpus: 4
+    ports:
+      - "21465:21465"
     volumes:
       - ./wppconnect_tokens:/usr/src/wpp-server/tokens
       - ./wppconnect_userdata:/usr/src/wpp-server/userDataDir

@@ -26,6 +26,7 @@ wppconnect_tokens/*
 wppconnect_userdata/*
 !wppconnect_userdata/.gitkeep
 
+
 # Security - Certificates and Keys
 *.pem
 *.key
