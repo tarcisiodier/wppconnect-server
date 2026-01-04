@@ -13,17 +13,17 @@ services:
       - ./wppconnect_userdata:/usr/src/wpp-server/userDataDir
       - ./logs:/usr/src/wpp-server/logs
     depends_on:
-      - redis
+      - wpp-redis
     # Graceful shutdown timeout
     stop_grace_period: 30s
     
-  redis:
+  wpp-redis:
     image: redis:7-alpine  # Versão específica + menor
     container_name: wpp-redis
     restart: unless-stopped
     command: redis-server --requirepass ${DB_REDIS_PASSWORD} --appendonly yes
     ports:
-      - "127.0.0.1:6379:6379"  # Só localhost acesso
+      - "6380:6379"  # Só localhost acesso
     volumes:
       - redis_data:/data
     # Health check para Redis
