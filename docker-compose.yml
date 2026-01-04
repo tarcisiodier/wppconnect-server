@@ -10,23 +10,29 @@ services:
       - "21465:21465"
     volumes:
       - ./wppconnect_tokens:/usr/src/wpp-server/tokens
-      - ${CUSTOM_USER_DATA_DIR}:/usr/src/wpp-server/userDataDir
-  # mongo:
-  #   image: mongo:latest
-  #   container_name: wpp-mongo
-  #   restart: unless-stopped
-  #   volumes:
-  #     - mongo_data:/data/db
-
+      - ./wppconnect_userdata:/usr/src/wpp-server/userDataDir
+      - ./logs:/usr/src/wpp-server/logs
+    depends_on:
+      - redis
+    # Graceful shutdown timeout
+    stop_grace_period: 30s
+    
   redis:
-    image: redis:latest
+    image: redis:7-alpine  # Versão específica + menor
     container_name: wpp-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${DB_REDIS_PASSWORD}
+    command: redis-server --requirepass ${DB_REDIS_PASSWORD} --appendonly yes
+    ports:
+      - "127.0.0.1:6379:6379"  # Só localhost acesso
     volumes:
       - redis_data:/data
+    # Health check para Redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   wppconnect_tokens: {}
-  # mongo_data: {}
   redis_data: {}

@@ -1,29 +1,27 @@
-# Implementation Plan - Redis Cache Configuration
+# Implementation Plan - Fix Graceful Shutdown
 
-Enable Redis cache for wppconnect-server and optimize docker-compose configuration using environment variables.
+Resolve errors in `src/server.ts` related to the graceful shutdown implementation added by the user.
+
+## Problem Code
+The user added code to `src/server.ts` that attempts to:
+1. Call `server.close()` - but `initServer` does not return the HTTP server instance.
+2. Call `closeAllSessions({})` - but `getAllTokens` (called internally) expects `req.logger` to exist if an error occurs.
 
 ## Proposed Changes
 
-### Configuration
-#### [MODIFY] .env
-- Change `DB_REDIS_HOST` to `wpp-redis` (container name).
-- Ensure `TOKEN_STORE_TYPE` is `redis`.
+### `src/index.ts`
+#### [MODIFY] `initServer`
+- Update return type to include `http: http.Server`.
+- Return the `http` instance.
 
-### Infrastructure
-#### [MODIFY] docker-compose.yml
-- **wppconnect service**:
-    - Update volume to use `${CUSTOM_USER_DATA_DIR}` for `userDataDir`.
-- **redis service**:
-    - Add `command` to start redis with password: `redis-server --requirepass ${DB_REDIS_PASSWORD}`.
-    - Ensure ports and volumes are correctly configured.
+### `src/server.ts`
+#### [MODIFY] `gracefulShutdown`
+- Extract `http` from `initServer` return.
+- Pass `{ logger }` as the mock request to `closeAllSessions` to prevent crashes on error logging.
 
 ## Verification Plan
 
 ### Manual Verification
-1. Stop running containers: `docker compose down`
-2. Start containers: `docker compose up -d`
-3. View logs to confirm connection:
-   ```bash
-   docker compose logs -f wppconnect
-   ```
-   Expected output should indicate successful connection to Redis and TokenStore type as Redis.
+1. Start server: `npm run dev` or `docker compose up`.
+2. Send SIGINT (Ctrl+C).
+3. Verify logs show "Starting graceful shutdown...", "All sessions closed successfully", and "HTTP server closed".

@@ -44,6 +44,7 @@ export function initServer(serverOptions: Partial<ServerOptions>): {
   app: Express;
   routes: Router;
   logger: Logger;
+  http: any;
 } {
   if (typeof serverOptions !== 'object') {
     serverOptions = {};
@@ -139,5 +140,6 @@ please set the log to 'silly', copy the log that shows the error and open your i
     app,
     routes,
     logger,
+    http,
   };
 }

@@ -1,6 +1,6 @@
 # Tasks
 
-- [ ] Create Implementation Plan
+- [x] Create Implementation Plan
 - [x] Update .env
     - [x] Set DB_REDIS_HOST=wpp-redis
 - [x] Update docker-compose.yml
@@ -12,3 +12,7 @@
         - [x] Initial check failed (Redis v3 vs v4)
         - [x] Update code for Redis v4 compatibility
         - [x] Re-verify logs
+- [/] Debug Graceful Shutdown
+    - [x] Update src/index.ts to return http server
+    - [x] Update src/server.ts to use correct server instance and logger
+    - [/] Verify fix
