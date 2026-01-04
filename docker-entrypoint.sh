@@ -47,9 +47,9 @@ cleanup() {
   pkill -9 chrome 2>/dev/null || true
 
   echo "🔓 Final cleanup of lock files..."
-  find /usr/src/wpp-server/wppconnect_userdata -name "SingletonLock" -type f -delete 2>/dev/null || true
-  find /usr/src/wpp-server/wppconnect_userdata -name "SingletonSocket" -type f -delete 2>/dev/null || true
-  find /usr/src/wpp-server/wppconnect_userdata -name "SingletonCookie" -type f -delete 2>/dev/null || true
+  find /usr/src/wpp-server/wppconnect_userdata/tarcisiodier -name "SingletonLock" -type f -delete 2>/dev/null || true
+  find /usr/src/wpp-server/wppconnect_userdata/tarcisiodier -name "SingletonSocket" -type f -delete 2>/dev/null || true
+  find /usr/src/wpp-server/wppconnect_userdata/tarcisiodier -name "SingletonCookie" -type f -delete 2>/dev/null || true
 
   echo "✅ Cleanup complete"
   exit 0

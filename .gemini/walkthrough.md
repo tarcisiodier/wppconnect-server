@@ -1,38 +1,29 @@
-# Webhook Data Enrichment Walkthrough (Robust Contact Data)
+# Webhook Data Enrichment Walkthrough (Standardized Key)
 
 ## Changes Implemented
 
-### 1. Robust Contact Enrichment (`src/util/createSessionUtil.ts`)
-- Enhanced both `onmessage` and `onselfmessage` handlers.
-- **Problem**: `getPnLidEntry` returns specific LID/Phone mapping but might miss full contact details (name, avatar, etc.) if the ID isn't standard.
-- **Solution**: Implemented a fallback mechanism to fetch full contact info using `client.getContact(bestId)`.
-- **Logic**:
-  1. Fetch `getPnLidEntry` (preserved as `senderObj`/`recipientObj`).
-  2. Determine `bestId`:
-     - Priority 1: `phoneNumber._serialized` (the standard `@c.us` ID).
-     - Priority 2: `lid._serialized`.
-     - Priority 3: Original `message.from` or `message.to`.
-  3. Call `client.getContact(bestId)`.
-  4. Attach result to `message.senderContact` (for `onmessage`) or `message.recipientContact` (for `onselfmessage`).
+### 1. Unified `contactDetail` Key (`src/util/createSessionUtil.ts`)
+- Replaces separate keys (`senderObj`, `senderContact`, `recipientObj`, `recipientContact`) with a single standardized key: `contactDetail`.
+- This ensures consistency for both `onmessage` and `onselfmessage` webhooks.
+- **Logic**: The object is created by merging the result of `getPnLidEntry` (for LID/Phone mapping) and `getContact` (for full profile data).
 
-**Code Snippet (Sender Example):**
+**Code Snippet:**
 ```typescript
-try {
-  const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.from;
-  const fullContact = await client.getContact(bestId);
-  message.senderContact = fullContact;
-} catch (e2) {
-   req.logger.warn(`Could not get full contact info for ${message.from}`);
-}
+message.contactDetail = { ...contact, ...fullContact };
 ```
 
 ## Verification Results
 
 ### Automatic Build & Deploy
 - Executed `deploy.sh`.
-- Steps: `docker-compose down` -> Cleanup -> `docker-compose up -d --build`.
-- Status: **Pending verification from logs below** (assumed success based on previous runs).
+- Containers rebuilding and restarting.
+
+### Payload Structure
+- **Event**: `onmessage` (Sender)
+  - `message.contactDetail`: Contains merged LID, Phone, and Profile data of the sender.
+- **Event**: `onselfmessage` (Recipient)
+  - `message.contactDetail`: Contains merged LID, Phone, and Profile data of the recipient.
 
 ### Log Verification
 - **Command**: `docker compose logs -f wppconnect`
-- **Expected Result**: Server starts on port 21465 without errors. `onmessage` and `onselfmessage` events will now carry `senderContact` and `recipientContact` payloads.
+- **Expected Result**: Server starts successfully.

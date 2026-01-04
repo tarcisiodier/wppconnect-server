@@ -293,15 +293,16 @@ export default class CreateSessionUtil {
       if (!isGroup && !isNewsletter) {
         try {
           const contact = await client.getPnLidEntry(message.from);
-          message.senderObj = contact;
+          let fullContact = {};
 
           try {
             const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.from;
-            const fullContact = await client.getContact(bestId);
-            message.senderContact = fullContact;
+            fullContact = await client.getContact(bestId);
           } catch (e2) {
              req.logger.warn(`Could not get full contact info for ${message.from}`);
           }
+          
+          message.contactDetail = { ...contact, ...fullContact };
 
         } catch (e) {
           req.logger.warn(`Could not get PnLid for ${message.from}`);
@@ -381,15 +382,16 @@ export default class CreateSessionUtil {
           try {
             if (message.to) {
               const contact = await client.getPnLidEntry(message.to);
-              message.recipientObj = contact;
+              let fullContact = {};
 
               try {
                 const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.to;
-                const fullContact = await client.getContact(bestId);
-                message.recipientContact = fullContact;
+                fullContact = await client.getContact(bestId);
               } catch (e2) {
                  req.logger.warn(`Could not get full contact info for recipient ${message.to}`);
               }
+
+              message.contactDetail = { ...contact, ...fullContact };
             }
           } catch (e) {
             req.logger.warn(`Could not get PnLid for recipient ${message.to}`);

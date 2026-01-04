@@ -27,6 +27,10 @@
     - [x] Plan
     - [x] Implement getContact with fallback in createSessionUtil.ts
     - [x] Run deploy.sh
+- [x] Standardize Webhook Key
+    - [x] Plan
+    - [x] Implement contactDetail key in createSessionUtil.ts
+    - [x] Run deploy.sh
 - [x] Enrich Webhook Data
     - [x] Plan
     - [x] Implement sender enrichment in src/util/createSessionUtil.ts
