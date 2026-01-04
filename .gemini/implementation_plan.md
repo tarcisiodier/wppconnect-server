@@ -1,27 +1,21 @@
-# Implementation Plan - Fix Graceful Shutdown
+# Implementation Plan - Enrich Webhook Data
 
-Resolve errors in `src/server.ts` related to the graceful shutdown implementation added by the user.
-
-## Problem Code
-The user added code to `src/server.ts` that attempts to:
-1. Call `server.close()` - but `initServer` does not return the HTTP server instance.
-2. Call `closeAllSessions({})` - but `getAllTokens` (called internally) expects `req.logger` to exist if an error occurs.
+The user wants to receive full contact information (including LID and phone number details) in the `onmessage` webhook. The current `sender` object is incomplete.
 
 ## Proposed Changes
 
-### `src/index.ts`
-#### [MODIFY] `initServer`
-- Update return type to include `http: http.Server`.
-- Return the `http` instance.
+### `src/util/createSessionUtil.ts`
 
-### `src/server.ts`
-#### [MODIFY] `gracefulShutdown`
-- Extract `http` from `initServer` return.
-- Pass `{ logger }` as the mock request to `closeAllSessions` to prevent crashes on error logging.
+#### [MODIFY] `listenMessages`
+- Inside the `client.onMessage` callback:
+  - Check if `message.from` is valid.
+  - Call `client.getContact(message.from)` to retrieve full contact details.
+  - Attach this data to the `message` object (e.g., as `message.senderObj`).
+  - Pass the enriched `message` to `callWebHook`.
 
 ## Verification Plan
 
 ### Manual Verification
-1. Start server: `npm run dev` or `docker compose up`.
-2. Send SIGINT (Ctrl+C).
-3. Verify logs show "Starting graceful shutdown...", "All sessions closed successfully", and "HTTP server closed".
+1. Rebuild and restart the container.
+2. Observe logs (if we add logging) or rely on user to verify the webhook payload.
+3. Since I cannot receive the webhook myself, I will verify the code compiles and the service starts.

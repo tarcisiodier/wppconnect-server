@@ -12,7 +12,11 @@
         - [x] Initial check failed (Redis v3 vs v4)
         - [x] Update code for Redis v4 compatibility
         - [x] Re-verify logs
-- [/] Debug Graceful Shutdown
+- [x] Debug Graceful Shutdown
     - [x] Update src/index.ts to return http server
     - [x] Update src/server.ts to use correct server instance and logger
-    - [/] Verify fix
+    - [x] Verify fix
+- [x] Enrich Webhook Data
+    - [x] Plan
+    - [x] Implement sender enrichment in src/util/createSessionUtil.ts
+    - [x] Verify

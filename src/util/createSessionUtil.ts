@@ -291,6 +291,12 @@ export default class CreateSessionUtil {
       const isNewsletter = message.from?.endsWith('@newsletter') || message.chatId?.endsWith('@newsletter');
 
       if (!isGroup && !isNewsletter) {
+        try {
+          const contact = await client.getContact(message.from);
+          message.senderObj = contact;
+        } catch (e) {
+          req.logger.warn(`Could not get contact for ${message.from}`);
+        }
         callWebHook(client, req, 'onmessage', message);
       } else {
         req.logger.debug('Skipping webhook for group/newsletter message (onmessage)', {
