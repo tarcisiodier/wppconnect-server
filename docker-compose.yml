@@ -18,20 +18,19 @@ services:
     stop_grace_period: 30s
     
   wpp-redis:
-    image: redis:7-alpine  # Versão específica + menor
+    image: redis:7-alpine
     container_name: wpp-redis
     restart: unless-stopped
     command: redis-server --requirepass ${DB_REDIS_PASSWORD} --appendonly yes
     ports:
-      - "6380:6379"  # Só localhost acesso
-    volumes:
-      - redis_data:/data
-    # Health check para Redis
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - "127.0.0.1:6380:6379"  # Externa 6380, interna 6379
+  volumes:
+    - redis_data:/data
+  healthcheck:
+    test: ["CMD", "redis-cli", "-a", "${DB_REDIS_PASSWORD}", "ping"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
 
 volumes:
   wppconnect_tokens: {}
