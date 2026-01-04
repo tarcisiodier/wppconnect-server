@@ -1,22 +1,40 @@
-# Implementation Plan - Enrich `onselfmessage` Webhook Data
+# Implementation Plan - Standardize Contact Data Key
 
-The user wants to enrich the `onselfmessage` webhook with data about the *recipient* of the message, similar to how we enriched `onmessage` with sender data.
+The user requests that all detailed contact data be grouped under a single key: `contactDetail`.
+This applies to both:
+- `onmessage` (sender data).
+- `onselfmessage` (recipient data).
 
 ## Proposed Changes
 
 ### `src/util/createSessionUtil.ts`
 
-#### [MODIFY] `listenMessages` (inside `client.onAnyMessage`)
-- Locate the `onselfmessage` logic (where `req.serverOptions.webhook.onSelfMessage && message.fromMe` is true).
-- Inside the valid block (before `callWebHook`):
-  - Check if `message.to` is valid.
-  - Call `client.getPnLidEntry(message.to)` to retrieve the recipient's contact details (including LID).
-  - Attach this data to the `message` object as `message.recipientObj`.
-  - Pass the enriched `message` to `callWebHook`.
+#### [MODIFY] `listenMessages`
+
+1.  **Refactor `onmessage` Logic**:
+    -   Fetch `getPnLidEntry` -> `contact`.
+    -   Fetch `getContact(bestId)` -> `fullContact`.
+    -   **Merge** these into `message.contactDetail`.
+    -   Remove `message.senderObj` and `message.senderContact`.
+    -   Code structure:
+        ```typescript
+        const contact = await client.getPnLidEntry(message.from);
+        let fullContact = {};
+        try {
+            const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.from;
+            fullContact = await client.getContact(bestId);
+        } catch (e) {}
+        message.contactDetail = { ...contact, ...fullContact };
+        ```
+
+2.  **Refactor `onselfmessage` Logic**:
+    -   Fetch `getPnLidEntry` -> `contact`.
+    -   Fetch `getContact(bestId)` -> `fullContact`.
+    -   **Merge** these into `message.contactDetail`.
+    -   Remove `message.recipientObj` and `message.recipientContact`.
 
 ## Verification Plan
 
 ### Manual Verification
-1. Rebuild and restart the container.
-2. Verify logs show successful startup.
-3. (Implicit) User will verify the webhook payload contains `recipientObj`.
+1.  Run `deploy.sh`.
+2.  (Implicit) User verifies webhook payload structure.

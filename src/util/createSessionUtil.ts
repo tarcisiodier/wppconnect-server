@@ -294,6 +294,15 @@ export default class CreateSessionUtil {
         try {
           const contact = await client.getPnLidEntry(message.from);
           message.senderObj = contact;
+
+          try {
+            const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.from;
+            const fullContact = await client.getContact(bestId);
+            message.senderContact = fullContact;
+          } catch (e2) {
+             req.logger.warn(`Could not get full contact info for ${message.from}`);
+          }
+
         } catch (e) {
           req.logger.warn(`Could not get PnLid for ${message.from}`);
         }
@@ -373,6 +382,14 @@ export default class CreateSessionUtil {
             if (message.to) {
               const contact = await client.getPnLidEntry(message.to);
               message.recipientObj = contact;
+
+              try {
+                const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.to;
+                const fullContact = await client.getContact(bestId);
+                message.recipientContact = fullContact;
+              } catch (e2) {
+                 req.logger.warn(`Could not get full contact info for recipient ${message.to}`);
+              }
             }
           } catch (e) {
             req.logger.warn(`Could not get PnLid for recipient ${message.to}`);

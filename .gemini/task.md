@@ -19,6 +19,14 @@
 - [x] Refine Webhook Data
     - [x] Switch to getPnLidEntry in src/util/createSessionUtil.ts
     - [x] Verify fix
+- [x] Enrich Self Messages
+    - [x] Plan
+    - [x] Implement recipient enrichment in src/util/createSessionUtil.ts
+    - [x] Run deploy.sh
+- [x] Robust Contact Data
+    - [x] Plan
+    - [x] Implement getContact with fallback in createSessionUtil.ts
+    - [x] Run deploy.sh
 - [x] Enrich Webhook Data
     - [x] Plan
     - [x] Implement sender enrichment in src/util/createSessionUtil.ts

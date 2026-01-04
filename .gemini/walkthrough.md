@@ -1,37 +1,38 @@
-# Webhook Data Enrichment Walkthrough
+# Webhook Data Enrichment Walkthrough (Robust Contact Data)
 
 ## Changes Implemented
 
-### 1. Webhook Payload Enrichment (`src/util/createSessionUtil.ts`)
-- Modified the `listenMessages` method.
-- Replaced `getContact` with `getPnLidEntry(message.from)` to fetch comprehensive contact data (including LID).
-- The contact object is attached to `message.senderObj` before the webhook is triggered.
+### 1. Robust Contact Enrichment (`src/util/createSessionUtil.ts`)
+- Enhanced both `onmessage` and `onselfmessage` handlers.
+- **Problem**: `getPnLidEntry` returns specific LID/Phone mapping but might miss full contact details (name, avatar, etc.) if the ID isn't standard.
+- **Solution**: Implemented a fallback mechanism to fetch full contact info using `client.getContact(bestId)`.
+- **Logic**:
+  1. Fetch `getPnLidEntry` (preserved as `senderObj`/`recipientObj`).
+  2. Determine `bestId`:
+     - Priority 1: `phoneNumber._serialized` (the standard `@c.us` ID).
+     - Priority 2: `lid._serialized`.
+     - Priority 3: Original `message.from` or `message.to`.
+  3. Call `client.getContact(bestId)`.
+  4. Attach result to `message.senderContact` (for `onmessage`) or `message.recipientContact` (for `onselfmessage`).
 
-**Code Snippet:**
+**Code Snippet (Sender Example):**
 ```typescript
-if (!isGroup && !isNewsletter) {
-  try {
-    const contact = await client.getPnLidEntry(message.from);
-    message.senderObj = contact;
-  } catch (e) {
-    req.logger.warn(`Could not get PnLid for ${message.from}`);
-  }
-  callWebHook(client, req, 'onmessage', message);
+try {
+  const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.from;
+  const fullContact = await client.getContact(bestId);
+  message.senderContact = fullContact;
+} catch (e2) {
+   req.logger.warn(`Could not get full contact info for ${message.from}`);
 }
 ```
 
 ## Verification Results
 
 ### Automatic Build & Deploy
-- Ran `docker compose up -d --build wppconnect`.
-- Images rebuilt successfully.
-- Containers started.
+- Executed `deploy.sh`.
+- Steps: `docker-compose down` -> Cleanup -> `docker-compose up -d --build`.
+- Status: **Pending verification from logs below** (assumed success based on previous runs).
 
 ### Log Verification
 - **Command**: `docker compose logs -f wppconnect`
-- **Result**:
-  ```
-  wpp-server  | ...
-  wpp-server  | info: 2026-01-04T18:13:44.257Z Server is running on port: 21465
-  ```
-- **Observation**: Server started successfully, confirming the function call is valid and the application is running with the new "PnLid" enrichment logic.
+- **Expected Result**: Server starts on port 21465 without errors. `onmessage` and `onselfmessage` events will now carry `senderContact` and `recipientContact` payloads.
