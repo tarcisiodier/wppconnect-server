@@ -16,6 +16,8 @@
 import bcrypt from 'bcrypt';
 import { Request, Response } from 'express';
 
+import Factory from '../util/tokenStore/factory';
+
 const saltRounds = 10;
 
 export async function encryptSession(
@@ -51,10 +53,29 @@ export async function encryptSession(
     });
   }
 
-  bcrypt.hash(session + secureTokenEnv, saltRounds, function (err, hash) {
+  bcrypt.hash(session + secureTokenEnv, saltRounds, async function (err, hash) {
     if (err) return res.status(500).json(err);
 
     const hashFormat = hash.replace(/\//g, '_').replace(/\+/g, '-');
+
+    // Save bearer token to token store
+    try {
+      const tokenStore = new Factory();
+      const myTokenStore = tokenStore.createTokenStory({ session } as any);
+      const existingToken = await myTokenStore.getToken(session);
+
+      // Update token data with bearer token
+      const updatedToken = {
+        ...existingToken,
+        bearerToken: hashFormat,
+        config: existingToken?.config || {}
+      };
+
+      await myTokenStore.setToken(session, updatedToken);
+    } catch (error) {
+      req.logger?.error('Error saving bearer token:', error);
+    }
+
     return res.status(201).json({
       status: 'success',
       session: session,

@@ -39,7 +39,7 @@ export const chromiumArgs = [
   '--ignore-certificate-errors-spki-list', // Ignores certificate errors in SPKI list
 ];
 // eslint-disable-next-line prefer-const
-export let clientsArray: Whatsapp[] = [];
+export let clientsArray: any = [];
 export const sessions = [];
 export const eventEmitter = new EventEmitter();
 

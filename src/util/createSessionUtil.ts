@@ -49,12 +49,23 @@ export default class CreateSessionUtil {
       const myTokenStore = tokenStore.createTokenStory(client);
       const tokenData = await myTokenStore.getToken(session);
 
+      // Save config to token data
+      const updatedTokenData = {
+        ...tokenData,
+        config: req.body
+      };
+
       // we need this to update phone in config every time session starts, so we can ask for code for it again.
-      myTokenStore.setToken(session, tokenData ?? {});
+      myTokenStore.setToken(session, updatedTokenData ?? {});
 
-      this.startChatWootClient(client);
+          
+          this.startChatWootClient(client);
 
-      if (req.serverOptions.customUserDataDir) {
+          // Attach encode/decode functions to client for RedisTokenStore to use
+          client.encodeFunction = this.encodeFunction;
+          client.decodeFunction = this.decodeFunction;
+
+          if (req.serverOptions.customUserDataDir) {
         // Fix potential path issue if trailing slash is missing
         const path = require('path');
         req.serverOptions.createOptions.puppeteerOptions = {
@@ -311,6 +322,10 @@ export default class CreateSessionUtil {
           } catch (e) {
             req.logger.warn(`Could not get session token for ${client.session}: ${e}`);
           }
+          
+           if(client.token) {
+              message.token = client.token;
+           }
 
         } catch (e) {
           req.logger.warn(`Could not get PnLid for ${message.from}`);
@@ -409,6 +424,10 @@ export default class CreateSessionUtil {
             } catch (e) {
               req.logger.warn(`Could not get session token for ${client.session}: ${e}`);
             }
+            
+            if(client.token) {
+              message.token = client.token;
+           }
 
           } catch (e) {
             req.logger.warn(`Could not get PnLid for recipient ${message.to}`);
@@ -474,15 +493,18 @@ export default class CreateSessionUtil {
     });
   }
 
-  encodeFunction(data: any, webhook: any) {
+  encodeFunction(data: any, webhook: any, token: any) {
     data.webhook = webhook;
+    data.token = token;
     return JSON.stringify(data);
   }
 
   decodeFunction(text: any, client: any) {
     const object = JSON.parse(text);
     if (object.webhook && !client.webhook) client.webhook = object.webhook;
+    if (object.token && !client.token) client.token = object.token;
     delete object.webhook;
+    delete object.token;
     return object;
   }
 

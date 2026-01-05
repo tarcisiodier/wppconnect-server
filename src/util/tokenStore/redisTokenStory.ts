@@ -20,7 +20,17 @@ class RedisTokenStore {
           const reply = await (redisClient as any).get(this.prefix + sessionName);
           if (!reply) return resolve(null);
           
-          const object = JSON.parse(reply);
+          let object;
+          if (this.client.decodeFunction) {
+            try {
+              object = this.client.decodeFunction(reply, this.client);
+            } catch(e) {
+               object = JSON.parse(reply);
+            }
+          } else {
+            object = JSON.parse(reply);
+          }
+          
           if (object) {
             if (object.config && Object.keys(this.client.config).length === 0)
               this.client.config = object.config;
@@ -40,9 +50,17 @@ class RedisTokenStore {
         try {
           tokenData.sessionName = sessionName;
           tokenData.config = this.client.config;
+          
+          let text;
+           if (this.client.encodeFunction) {
+             text = this.client.encodeFunction(tokenData, this.client.config.webhook, this.client.token);
+           } else {
+             text = JSON.stringify(tokenData);
+           }
+
           await (redisClient as any).set(
             this.prefix + sessionName,
-            JSON.stringify(tokenData)
+            text
           );
           resolve(true);
         } catch (err) {

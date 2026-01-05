@@ -37,6 +37,11 @@
     - [x] Run deploy.sh
     - [x] Add Debug Logs
     - [x] Run deploy.sh
+- [x] Token Persistence
+    - [x] Fix Build Error (auth.ts/sessionUtil.ts)
+    - [x] Implement encode/decode in createSessionUtil.ts
+    - [x] Update RedisTokenStore.ts
+    - [x] Run deploy.sh
 - [x] Enrich Webhook Data
     - [x] Plan
     - [x] Implement sender enrichment in src/util/createSessionUtil.ts

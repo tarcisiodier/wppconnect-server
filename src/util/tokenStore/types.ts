@@ -24,6 +24,8 @@
  *   WASecretBundle: '{"key":"+i/nRgWJ....","encKey":"kGdMR5t....","macKey":"+i/nRgW...."}',
  *   WAToken1: '"0i8...."',
  *   WAToken2: '"1@lPpzwC...."',
+ *   bearerToken: '$2b$10$...',
+ *   config: { webhook: 'https://...', waitQrCode: false }
  * }
  * ```
  */
@@ -32,6 +34,8 @@ export interface SessionToken {
   WAToken1: string;
   WAToken2: string;
   WASecretBundle: string;
+  bearerToken?: string;
+  config?: any;
 }
 
 export interface TokenStore<T extends SessionToken = SessionToken> {

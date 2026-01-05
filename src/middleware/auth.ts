@@ -75,7 +75,7 @@ const verifyToken = (req: Request, res: Response, next: NextFunction): any => {
 
           // Store the token in the client object for webhook usage
           if (req.client) {
-            req.client.sessionToken = tokenDecrypt;
+            (req.client as any).sessionToken = tokenDecrypt;
           }
 
           next();

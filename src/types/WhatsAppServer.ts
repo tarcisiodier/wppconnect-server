@@ -4,4 +4,5 @@ export interface WhatsAppServer extends Whatsapp {
   urlcode: string;
   status: string;
   sessionToken?: string;
+  token?: any;
 }
