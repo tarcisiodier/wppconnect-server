@@ -496,6 +496,7 @@ export default class CreateSessionUtil {
   encodeFunction(data: any, webhook: any, token: any) {
     data.webhook = webhook;
     data.token = token;
+    // bearerToken is already in data if set by encryptController
     return JSON.stringify(data);
   }
 
@@ -503,6 +504,7 @@ export default class CreateSessionUtil {
     const object = JSON.parse(text);
     if (object.webhook && !client.webhook) client.webhook = object.webhook;
     if (object.token && !client.token) client.token = object.token;
+    // bearerToken stays in the token data (not moved to client)
     delete object.webhook;
     delete object.token;
     return object;
