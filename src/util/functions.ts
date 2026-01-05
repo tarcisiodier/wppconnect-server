@@ -150,21 +150,21 @@ export async function callWebHook(
     // Filter 2: Check if it's an API-sent message
     // API messages have ack=0 (not sent to server yet)
     // App/Web messages have ack=1 (already sent to server)
-    const isApiMessage = data?.ack === 0;
-    const shouldFilterApiMessage =
-      !req.serverOptions.webhook.sendApi &&
-      data?.fromMe &&
-      isApiMessage;
+    // const isApiMessage = data?.ack === 0;
+    // const shouldFilterApiMessage =
+    //   !req.serverOptions.webhook.sendApi &&
+    //   data?.fromMe &&
+    //   isApiMessage;
 
-    if (shouldFilterApiMessage) {
-      req.logger.debug('Filtering API-sent message from webhook', {
-        sendApi: req.serverOptions.webhook.sendApi,
-        fromMe: data?.fromMe,
-        messageId: data?.id?.id,
-        event: event
-      });
-      return;
-    }
+    // if (shouldFilterApiMessage) {
+    //   req.logger.debug('Filtering API-sent message from webhook', {
+    //     sendApi: req.serverOptions.webhook.sendApi,
+    //     fromMe: data?.fromMe,
+    //     messageId: data?.id?.id,
+    //     event: event
+    //   });
+    //   return;
+    // }
 
     // Filter 3: Check ignore list (for other patterns like status@broadcast)
     if (req.serverOptions.webhook?.ignore) {
@@ -194,7 +194,19 @@ export async function callWebHook(
         data.from ||
         data.chatId ||
         (data.chatId ? data.chatId._serialized : null);
-      data = Object.assign({ event: event, session: client.session }, data);
+
+      // Add session token to webhook data
+      const webhookData: any = {
+        event: event,
+        session: client.session
+      };
+
+      // Include session token if available
+      if (client.sessionToken) {
+        webhookData.sessionToken = client.sessionToken;
+      }
+
+      data = Object.assign(webhookData, data);
       if (req.serverOptions.mapper.enable)
         data = await convert(req.serverOptions.mapper.prefix, data);
 
