@@ -195,16 +195,11 @@ export async function callWebHook(
         data.chatId ||
         (data.chatId ? data.chatId._serialized : null);
 
-      // Add session token to webhook data
+      // Add event and session to webhook data
       const webhookData: any = {
         event: event,
         session: client.session
       };
-
-      // Include session token if available
-      if (client.sessionToken) {
-        webhookData.sessionToken = client.sessionToken;
-      }
 
       data = Object.assign(webhookData, data);
       if (req.serverOptions.mapper.enable)

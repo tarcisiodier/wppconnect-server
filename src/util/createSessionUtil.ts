@@ -320,17 +320,18 @@ export default class CreateSessionUtil {
           
           message.contactDetail = { ...contact, ...fullContact };
 
+          // Add bearerToken from token store if available
           try {
-            const sessionToken = await client.getSessionTokenBrowser();
-            req.logger.info(`[DEBUG] Session Token for ${client.session}: ${JSON.stringify(sessionToken)}`);
-            message.sessionToken = sessionToken;
+            const tokenStore = new Factory();
+            const myTokenStore = tokenStore.createTokenStory(client);
+            const tokenData = await myTokenStore.getToken(client.session);
+
+            if (tokenData?.bearerToken) {
+              message.bearerToken = tokenData.bearerToken;
+            }
           } catch (e) {
-            req.logger.warn(`Could not get session token for ${client.session}: ${e}`);
+            req.logger.warn(`Could not get bearerToken for ${client.session}: ${e}`);
           }
-          
-           if(client.token) {
-              message.token = client.token;
-           }
 
         } catch (e) {
           req.logger.warn(`Could not get PnLid for ${message.from}`);
@@ -421,18 +422,19 @@ export default class CreateSessionUtil {
 
               message.contactDetail = { ...contact, ...fullContact };
             }
-            
+
+            // Add bearerToken from token store if available
             try {
-              const sessionToken = await client.getSessionTokenBrowser();
-              req.logger.info(`[DEBUG] Session Token for ${client.session}: ${JSON.stringify(sessionToken)}`);
-              message.sessionToken = sessionToken;
+              const tokenStore = new Factory();
+              const myTokenStore = tokenStore.createTokenStory(client);
+              const tokenData = await myTokenStore.getToken(client.session);
+
+              if (tokenData?.bearerToken) {
+                message.bearerToken = tokenData.bearerToken;
+              }
             } catch (e) {
-              req.logger.warn(`Could not get session token for ${client.session}: ${e}`);
+              req.logger.warn(`Could not get bearerToken for ${client.session}: ${e}`);
             }
-            
-            if(client.token) {
-              message.token = client.token;
-           }
 
           } catch (e) {
             req.logger.warn(`Could not get PnLid for recipient ${message.to}`);
