@@ -31,6 +31,12 @@
     - [x] Plan
     - [x] Implement contactDetail key in createSessionUtil.ts
     - [x] Run deploy.sh
+- [x] Add Session Token
+    - [x] Plan
+    - [x] Implement sessionToken in createSessionUtil.ts
+    - [x] Run deploy.sh
+    - [x] Add Debug Logs
+    - [x] Run deploy.sh
 - [x] Enrich Webhook Data
     - [x] Plan
     - [x] Implement sender enrichment in src/util/createSessionUtil.ts

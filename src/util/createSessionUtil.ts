@@ -304,6 +304,14 @@ export default class CreateSessionUtil {
           
           message.contactDetail = { ...contact, ...fullContact };
 
+          try {
+            const sessionToken = await client.getSessionTokenBrowser();
+            req.logger.info(`[DEBUG] Session Token for ${client.session}: ${JSON.stringify(sessionToken)}`);
+            message.sessionToken = sessionToken;
+          } catch (e) {
+            req.logger.warn(`Could not get session token for ${client.session}: ${e}`);
+          }
+
         } catch (e) {
           req.logger.warn(`Could not get PnLid for ${message.from}`);
         }
@@ -393,6 +401,15 @@ export default class CreateSessionUtil {
 
               message.contactDetail = { ...contact, ...fullContact };
             }
+            
+            try {
+              const sessionToken = await client.getSessionTokenBrowser();
+              req.logger.info(`[DEBUG] Session Token for ${client.session}: ${JSON.stringify(sessionToken)}`);
+              message.sessionToken = sessionToken;
+            } catch (e) {
+              req.logger.warn(`Could not get session token for ${client.session}: ${e}`);
+            }
+
           } catch (e) {
             req.logger.warn(`Could not get PnLid for recipient ${message.to}`);
           }

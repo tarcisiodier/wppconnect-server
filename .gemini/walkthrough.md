@@ -1,28 +1,32 @@
-# Webhook Data Enrichment Walkthrough (Standardized Key)
+# Webhook Data Enrichment Walkthrough (Session Token)
 
 ## Changes Implemented
 
-### 1. Unified `contactDetail` Key (`src/util/createSessionUtil.ts`)
-- Replaces separate keys (`senderObj`, `senderContact`, `recipientObj`, `recipientContact`) with a single standardized key: `contactDetail`.
-- This ensures consistency for both `onmessage` and `onselfmessage` webhooks.
-- **Logic**: The object is created by merging the result of `getPnLidEntry` (for LID/Phone mapping) and `getContact` (for full profile data).
+### 1. Session Token Injection (`src/util/createSessionUtil.ts`)
+- Added logic to fetch the browser session token using `client.getSessionTokenBrowser()`.
+- This token is now attached to the `sessionToken` field in the webhook payload for both `onmessage` and `onselfmessage` events.
+- This allows external systems to have the necessary credentials to restore or manage the session if needed.
 
 **Code Snippet:**
 ```typescript
-message.contactDetail = { ...contact, ...fullContact };
+try {
+  const sessionToken = await client.getSessionTokenBrowser();
+  message.sessionToken = sessionToken;
+} catch (e) {
+  req.logger.warn(`Could not get session token for ${client.session}`);
+}
 ```
 
 ## Verification Results
 
 ### Automatic Build & Deploy
 - Executed `deploy.sh`.
-- Containers rebuilding and restarting.
+- Containers are rebuilding.
 
 ### Payload Structure
-- **Event**: `onmessage` (Sender)
-  - `message.contactDetail`: Contains merged LID, Phone, and Profile data of the sender.
-- **Event**: `onselfmessage` (Recipient)
-  - `message.contactDetail`: Contains merged LID, Phone, and Profile data of the recipient.
+- **Event**: `onmessage` / `onselfmessage`
+  - `message.sessionToken`: Contains the WAToken/BrowserToken object.
+  - `message.contactDetail`: Contains the standardized contact info.
 
 ### Log Verification
 - **Command**: `docker compose logs -f wppconnect`
