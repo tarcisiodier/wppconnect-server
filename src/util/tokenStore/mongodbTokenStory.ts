@@ -18,8 +18,13 @@ class MongodbTokenStore {
     setToken: async (sessionName: any, tokenData: any) => {
       const token = new (Token as any)(tokenData);
       token.sessionName = sessionName;
-      token.webhook = this.client.config.webhook;
-      token.config = JSON.stringify(this.client.config);
+      token.webhook = this.client.config?.webhook;
+      token.config = JSON.stringify(this.client.config || {});
+
+      // Preserve bearerToken if it exists in tokenData
+      if (tokenData.bearerToken) {
+        token.bearerToken = tokenData.bearerToken;
+      }
 
       const tk = await (Token as any).findOne({ sessionName });
 
