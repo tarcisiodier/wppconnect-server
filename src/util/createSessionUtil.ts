@@ -50,10 +50,15 @@ export default class CreateSessionUtil {
       const tokenData = await myTokenStore.getToken(session);
 
       // Save config to token data
-      const updatedTokenData = {
+      const updatedTokenData: any = {
         ...tokenData,
         config: req.body
       };
+
+      // If bearerToken is provided in the request body, save it
+      if (req.body.bearerToken) {
+        updatedTokenData.bearerToken = req.body.bearerToken;
+      }
 
       // we need this to update phone in config every time session starts, so we can ask for code for it again.
       myTokenStore.setToken(session, updatedTokenData ?? {});
