@@ -49,12 +49,23 @@ export default class CreateSessionUtil {
       const myTokenStore = tokenStore.createTokenStory(client);
       const tokenData = await myTokenStore.getToken(session);
 
+      // Save config to token data
+      const updatedTokenData = {
+        ...tokenData,
+        config: req.body
+      };
+
       // we need this to update phone in config every time session starts, so we can ask for code for it again.
-      myTokenStore.setToken(session, tokenData ?? {});
+      myTokenStore.setToken(session, updatedTokenData ?? {});
 
-      this.startChatWootClient(client);
+          
+          this.startChatWootClient(client);
 
-      if (req.serverOptions.customUserDataDir) {
+          // Attach encode/decode functions to client for RedisTokenStore to use
+          client.encodeFunction = this.encodeFunction;
+          client.decodeFunction = this.decodeFunction;
+
+          if (req.serverOptions.customUserDataDir) {
         // Fix potential path issue if trailing slash is missing
         const path = require('path');
         req.serverOptions.createOptions.puppeteerOptions = {
@@ -291,6 +302,34 @@ export default class CreateSessionUtil {
       const isNewsletter = message.from?.endsWith('@newsletter') || message.chatId?.endsWith('@newsletter');
 
       if (!isGroup && !isNewsletter) {
+        try {
+          const contact = await client.getPnLidEntry(message.from);
+          let fullContact = {};
+
+          try {
+            const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.from;
+            fullContact = await client.getContact(bestId);
+          } catch (e2) {
+             req.logger.warn(`Could not get full contact info for ${message.from}`);
+          }
+          
+          message.contactDetail = { ...contact, ...fullContact };
+
+          try {
+            const sessionToken = await client.getSessionTokenBrowser();
+            req.logger.info(`[DEBUG] Session Token for ${client.session}: ${JSON.stringify(sessionToken)}`);
+            message.sessionToken = sessionToken;
+          } catch (e) {
+            req.logger.warn(`Could not get session token for ${client.session}: ${e}`);
+          }
+          
+           if(client.token) {
+              message.token = client.token;
+           }
+
+        } catch (e) {
+          req.logger.warn(`Could not get PnLid for ${message.from}`);
+        }
         callWebHook(client, req, 'onmessage', message);
       } else {
         req.logger.debug('Skipping webhook for group/newsletter message (onmessage)', {
@@ -362,6 +401,38 @@ export default class CreateSessionUtil {
             messageId: message?.id?.id,
             isApiMessage: isApiMessage
           });
+
+          try {
+            if (message.to) {
+              const contact = await client.getPnLidEntry(message.to);
+              let fullContact = {};
+
+              try {
+                const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.to;
+                fullContact = await client.getContact(bestId);
+              } catch (e2) {
+                 req.logger.warn(`Could not get full contact info for recipient ${message.to}`);
+              }
+
+              message.contactDetail = { ...contact, ...fullContact };
+            }
+            
+            try {
+              const sessionToken = await client.getSessionTokenBrowser();
+              req.logger.info(`[DEBUG] Session Token for ${client.session}: ${JSON.stringify(sessionToken)}`);
+              message.sessionToken = sessionToken;
+            } catch (e) {
+              req.logger.warn(`Could not get session token for ${client.session}: ${e}`);
+            }
+            
+            if(client.token) {
+              message.token = client.token;
+           }
+
+          } catch (e) {
+            req.logger.warn(`Could not get PnLid for recipient ${message.to}`);
+          }
+          
           callWebHook(client, req, 'onselfmessage', message);
         } else {
           req.logger.debug('Skipping webhook for API-sent self message', {
@@ -422,15 +493,18 @@ export default class CreateSessionUtil {
     });
   }
 
-  encodeFunction(data: any, webhook: any) {
+  encodeFunction(data: any, webhook: any, token: any) {
     data.webhook = webhook;
+    data.token = token;
     return JSON.stringify(data);
   }
 
   decodeFunction(text: any, client: any) {
     const object = JSON.parse(text);
     if (object.webhook && !client.webhook) client.webhook = object.webhook;
+    if (object.token && !client.token) client.token = object.token;
     delete object.webhook;
+    delete object.token;
     return object;
   }
 
