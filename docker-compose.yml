@@ -2,12 +2,19 @@ services:
   wppconnect:
     container_name: wpp-server
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 15s
+        window: 120s
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
     build:
       context: .
     env_file:
       - .env
-    ports:
-      - "21465:21465"
     volumes:
       - wppconnect_tokens:/usr/src/wpp-server/tokens
       - wppconnect_userdata:/usr/src/wpp-server/userDataDir
