@@ -10,6 +10,8 @@ services:
         limits:
           cpus: '4'
           memory: 4G
+    networks:
+      - easypanel_net
     build:
       context: .
     env_file:
@@ -26,3 +28,8 @@ volumes:
     driver: local
   wpp_logs:
     driver: local
+
+networks:
+  easypanel_net:
+    external: true
+    name: easypanel-apps
