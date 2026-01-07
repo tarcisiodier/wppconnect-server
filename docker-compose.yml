@@ -8,8 +8,8 @@ services:
         window: 120s
       resources:
         limits:
-          cpus: '4'
-          memory: 4G
+          cpus: '${DEPLOY_RESOURCES_LIMIT_CPUS:-4}'
+          memory: ${DEPLOY_RESOURCES_LIMIT_MEMORY:-4G}
     networks:
       - easypanel_net
     build:
@@ -32,4 +32,4 @@ volumes:
 networks:
   easypanel_net:
     external: true
-    name: easypanel-apps
+    name: ${NETWORK_NAME:-easypanel-apps}
