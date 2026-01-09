@@ -18,9 +18,11 @@ import { Request, Response } from 'express';
 import fs from 'fs';
 
 import { logger } from '..';
+import Factory from '../util/tokenStore/factory';
 import config from '../config';
 import { backupSessions, restoreSessions } from '../util/manageSession';
-import { clientsArray } from '../util/sessionUtil';
+import { clientsArray, deleteSessionOnArray } from '../util/sessionUtil';
+import { callWebHook } from '../util/functions';
 
 export async function backupAllSessions(req: Request, res: Response) {
   /**
@@ -151,31 +153,177 @@ export async function clearSessionData(req: Request, res: Response) {
     const { secretkey, session } = req.params;
 
     if (secretkey !== config.secretKey) {
-      res.status(400).json({
+      return res.status(400).json({
         response: 'error',
         message: 'The token is incorrect',
       });
     }
+
+    // Logout and remove from clientsArray
     if (req?.client?.page) {
       delete clientsArray[req.params.session];
       await req.client.logout();
     }
+
+    // Remove user data directory
     const path = config.customUserDataDir + session;
-    const pathToken = __dirname + `../../../tokens/${session}.data.json`;
     if (fs.existsSync(path)) {
       await fs.promises.rm(path, {
         recursive: true,
       });
+      logger.info(`Removed user data directory for session: ${session}`);
     }
-    if (fs.existsSync(pathToken)) {
-      await fs.promises.rm(pathToken);
+
+    // Remove token using TokenStore (works for all storage types: file, mongodb, redis)
+    try {
+      const tokenStore = new Factory();
+      const myTokenStore = tokenStore.createTokenStory({ session } as any);
+      await myTokenStore.removeToken(session);
+      logger.info(`Removed token for session: ${session}`);
+    } catch (tokenError) {
+      logger.warn(`Could not remove token for session ${session}:`, tokenError);
     }
-    res.status(200).json({ success: true });
+
+    res.status(200).json({
+      success: true,
+      message: `Session ${session} data cleared successfully`
+    });
   } catch (error: any) {
     logger.error(error);
     res.status(500).json({
       status: false,
       message: 'Error on clear session data',
+      error: error,
+    });
+  }
+}
+
+export async function deleteSession(req: Request, res: Response) {
+  /**
+   #swagger.tags = ["Misc"]
+   #swagger.description = 'Delete session completely: closes connection, removes from memory, deletes user data directory and tokens'
+   #swagger.autoBody=false
+    #swagger.parameters["secretkey"] = {
+    required: true,
+    schema: 'THISISMYSECURETOKEN'
+    }
+    #swagger.parameters["session"] = {
+    schema: 'NERDWHATS_AMERICA'
+    }
+  */
+
+  try {
+    const { secretkey, session } = req.params;
+
+    if (secretkey !== config.secretKey) {
+      return res.status(400).json({
+        response: 'error',
+        message: 'The token is incorrect',
+      });
+    }
+
+    const client = clientsArray[session];
+    let wasConnected = false;
+
+    // Step 1: Close session if it's open
+    if (client) {
+      try {
+        wasConnected = client.status !== null;
+        
+        // Close browser/page if exists
+        if (client.page) {
+          try {
+            await client.close();
+            logger.info(`Closed browser for session: ${session}`);
+          } catch (closeError) {
+            logger.warn(`Error closing browser for session ${session}:`, closeError);
+            // Try to close browser directly
+            try {
+              if (client.page?.browser) {
+                await client.page.browser().close();
+              }
+            } catch (browserError) {
+              logger.warn(`Error closing browser directly:`, browserError);
+            }
+          }
+        }
+
+        // Logout if connected
+        if (wasConnected && client.logout) {
+          try {
+            await client.logout();
+            logger.info(`Logged out session: ${session}`);
+          } catch (logoutError) {
+            logger.warn(`Error logging out session ${session}:`, logoutError);
+          }
+        }
+
+        // Emit socket event
+        if (req.io) {
+          req.io.emit('whatsapp-status', false);
+        }
+
+        // Call webhook if client exists
+        if (wasConnected) {
+          try {
+            callWebHook(client, req, 'deletesession', {
+              message: `Session: ${session} deleted`,
+              connected: false,
+            });
+          } catch (webhookError) {
+            logger.warn(`Error calling webhook for session deletion:`, webhookError);
+          }
+        }
+      } catch (clientError) {
+        logger.warn(`Error processing client for session ${session}:`, clientError);
+      }
+    }
+
+    // Step 2: Remove from clientsArray
+    try {
+      deleteSessionOnArray(session);
+      delete clientsArray[session];
+      logger.info(`Removed session ${session} from clientsArray`);
+    } catch (arrayError) {
+      logger.warn(`Error removing session from array:`, arrayError);
+    }
+
+    // Step 3: Remove user data directory
+    const userDataPath = config.customUserDataDir + session;
+    if (fs.existsSync(userDataPath)) {
+      try {
+        await fs.promises.rm(userDataPath, {
+          recursive: true,
+          force: true,
+          maxRetries: 5,
+          retryDelay: 1000,
+        });
+        logger.info(`Removed user data directory for session: ${session}`);
+      } catch (dirError) {
+        logger.error(`Error removing user data directory for session ${session}:`, dirError);
+      }
+    }
+
+    // Step 4: Remove token using TokenStore (works for all storage types: file, mongodb, redis)
+    try {
+      const tokenStore = new Factory();
+      const myTokenStore = tokenStore.createTokenStory({ session } as any);
+      await myTokenStore.removeToken(session);
+      logger.info(`Removed token for session: ${session}`);
+    } catch (tokenError) {
+      logger.warn(`Could not remove token for session ${session}:`, tokenError);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Session ${session} deleted successfully`,
+      wasConnected: wasConnected,
+    });
+  } catch (error: any) {
+    logger.error(`Error deleting session:`, error);
+    return res.status(500).json({
+      status: false,
+      message: 'Error on delete session',
       error: error,
     });
   }

@@ -26,6 +26,7 @@ import CreateSessionUtil from '../util/createSessionUtil';
 import { callWebHook, contactToArray } from '../util/functions';
 import getAllTokens from '../util/getAllTokens';
 import { clientsArray, deleteSessionOnArray } from '../util/sessionUtil';
+import Factory from '../util/tokenStore/factory';
 
 const SessionUtil = new CreateSessionUtil();
 
@@ -174,20 +175,65 @@ export async function showAllSessions(
     tokenDecrypt = secretkey;
   }
 
-  const arr: any = [];
-
   if (tokenDecrypt !== req.serverOptions.secretKey) {
-    res.status(400).json({
+    return res.status(400).json({
       response: false,
       message: 'The token is incorrect',
     });
   }
 
-  Object.keys(clientsArray).forEach((item) => {
-    arr.push({ session: item });
-  });
+  try {
+    const sessionNames = await getAllTokens(req);
+    const tokenStore = new Factory();
+    const sessionsData: any[] = [];
 
-  res.status(200).json({ response: await getAllTokens(req) });
+    for (const sessionName of sessionNames) {
+      try {
+        // Criar token store para buscar dados da sessão
+        const myTokenStore = tokenStore.createTokenStory(null);
+        const tokenData = await myTokenStore.getToken(sessionName);
+
+        // Extrair webhook (pode estar em config.webhook, webhook direto, ou usar o padrão global)
+        let webhook: string | null = null;
+        if (tokenData) {
+          webhook =
+            tokenData.config?.webhook ||
+            tokenData.webhook ||
+            req.serverOptions.webhook.url ||
+            null;
+        } else {
+          // Se não houver tokenData, usar webhook global padrão
+          webhook = req.serverOptions.webhook.url || null;
+        }
+
+        // Extrair bearerToken
+        const bearerToken: string | null = tokenData?.bearerToken || null;
+
+        sessionsData.push({
+          session: sessionName,
+          webhook: webhook,
+          bearerToken: bearerToken,
+        });
+      } catch (error) {
+        // Se houver erro ao buscar dados da sessão, incluir mesmo assim com valores null
+        req.logger?.warn(`Error getting token data for session ${sessionName}:`, error);
+        sessionsData.push({
+          session: sessionName,
+          webhook: req.serverOptions.webhook.url || null,
+          bearerToken: null,
+        });
+      }
+    }
+
+    return res.status(200).json({ response: sessionsData });
+  } catch (error) {
+    req.logger?.error('Error in showAllSessions:', error);
+    return res.status(500).json({
+      response: false,
+      message: 'Error retrieving sessions data',
+      error: error,
+    });
+  }
 }
 
 export async function startSession(req: Request, res: Response): Promise<any> {

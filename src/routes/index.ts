@@ -87,6 +87,10 @@ routes.post(
   MiscController.clearSessionData
 );
 routes.post(
+  '/api/:session/:secretkey/delete-session',
+  MiscController.deleteSession
+);
+routes.post(
   '/api/:session/close-session',
   verifyToken,
   SessionController.closeSession
