@@ -96,6 +96,12 @@ routes.post(
   SessionController.closeSession
 );
 routes.post(
+  '/api/:session/clear-singleton',
+  verifyToken,
+  statusConnection,
+  MiscController.clearSingletonFiles
+);
+routes.post(
   '/api/:session/subscribe-presence',
   verifyToken,
   SessionController.subscribePresence

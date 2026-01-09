@@ -16,6 +16,7 @@
 
 import { Request, Response } from 'express';
 import fs from 'fs';
+import path from 'path';
 
 import { logger } from '..';
 import Factory from '../util/tokenStore/factory';
@@ -324,6 +325,151 @@ export async function deleteSession(req: Request, res: Response) {
     return res.status(500).json({
       status: false,
       message: 'Error on delete session',
+      error: error,
+    });
+  }
+}
+
+/**
+ * Recursively find and remove files/directories matching a pattern
+ */
+async function findAndRemove(
+  dir: string,
+  pattern: string,
+  isDirectory: boolean = false
+): Promise<number> {
+  let removedCount = 0;
+
+  if (!fs.existsSync(dir)) {
+    return 0;
+  }
+
+  try {
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+
+      try {
+        if (entry.isDirectory()) {
+          if (isDirectory && entry.name === pattern) {
+            // Remove directory matching pattern
+            await fs.promises.rm(fullPath, { recursive: true, force: true });
+            removedCount++;
+            logger.info(`Removed directory: ${fullPath}`);
+          } else {
+            // Recursively search in subdirectories
+            removedCount += await findAndRemove(fullPath, pattern, isDirectory);
+          }
+        } else if (!isDirectory && entry.name === pattern) {
+          // Remove file matching pattern
+          await fs.promises.unlink(fullPath);
+          removedCount++;
+          logger.info(`Removed file: ${fullPath}`);
+        }
+      } catch (error) {
+        logger.warn(`Error processing ${fullPath}:`, error);
+      }
+    }
+  } catch (error) {
+    logger.warn(`Error reading directory ${dir}:`, error);
+  }
+
+  return removedCount;
+}
+
+export async function clearSingletonFiles(req: Request, res: Response) {
+  /**
+   #swagger.tags = ["Misc"]
+   #swagger.description = 'Clear Chromium singleton lock files and crash data for a session'
+   #swagger.autoBody=false
+    #swagger.security = [{
+          "bearerAuth": []
+    }]
+    #swagger.parameters["session"] = {
+    schema: 'NERDWHATS_AMERICA'
+    }
+  */
+
+  try {
+    const { session } = req.params;
+
+    if (!session) {
+      return res.status(400).json({
+        status: false,
+        message: 'Session name is required',
+      });
+    }
+
+    const sessionDataDir = path.join(
+      config.customUserDataDir,
+      session
+    );
+
+    if (!fs.existsSync(sessionDataDir)) {
+      return res.status(404).json({
+        status: false,
+        message: `Session data directory not found for: ${session}`,
+      });
+    }
+
+    let totalRemoved = 0;
+    const results: any = {};
+
+    // Remove SingletonLock files
+    try {
+      const lockCount = await findAndRemove(sessionDataDir, 'SingletonLock', false);
+      results.singletonLock = lockCount;
+      totalRemoved += lockCount;
+    } catch (error) {
+      logger.warn(`Error removing SingletonLock files:`, error);
+      results.singletonLock = 0;
+    }
+
+    // Remove SingletonSocket files
+    try {
+      const socketCount = await findAndRemove(sessionDataDir, 'SingletonSocket', false);
+      results.singletonSocket = socketCount;
+      totalRemoved += socketCount;
+    } catch (error) {
+      logger.warn(`Error removing SingletonSocket files:`, error);
+      results.singletonSocket = 0;
+    }
+
+    // Remove SingletonCookie files
+    try {
+      const cookieCount = await findAndRemove(sessionDataDir, 'SingletonCookie', false);
+      results.singletonCookie = cookieCount;
+      totalRemoved += cookieCount;
+    } catch (error) {
+      logger.warn(`Error removing SingletonCookie files:`, error);
+      results.singletonCookie = 0;
+    }
+
+    // Remove Crashpad directories
+    try {
+      const crashpadCount = await findAndRemove(sessionDataDir, 'Crashpad', true);
+      results.crashpad = crashpadCount;
+      totalRemoved += crashpadCount;
+    } catch (error) {
+      logger.warn(`Error removing Crashpad directories:`, error);
+      results.crashpad = 0;
+    }
+
+    logger.info(`Cleared singleton files for session ${session}: ${totalRemoved} items removed`);
+
+    return res.status(200).json({
+      success: true,
+      message: `Singleton files cleared for session: ${session}`,
+      session: session,
+      removed: results,
+      totalRemoved: totalRemoved,
+    });
+  } catch (error: any) {
+    logger.error(`Error clearing singleton files:`, error);
+    return res.status(500).json({
+      status: false,
+      message: 'Error on clear singleton files',
       error: error,
     });
   }
