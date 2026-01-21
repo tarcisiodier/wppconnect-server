@@ -120,10 +120,39 @@ export async function callWebHook(
   event: any,
   data: any
 ) {
+  // Check if req and serverOptions are available
+  if (!req || !req.serverOptions) {
+    logger?.warn('[Webhook] Request or serverOptions not available', {
+      hasReq: !!req,
+      hasServerOptions: !!(req && req.serverOptions),
+      event,
+      session: client?.session,
+    });
+    return;
+  }
+
   const webhook =
-    client?.config.webhook || req.serverOptions.webhook.url || false;
-  if (webhook) {
-    // Filter 1: NEVER send group messages to webhook (highest priority)
+    client?.config?.webhook || req.serverOptions.webhook?.url || false;
+  
+  if (!webhook) {
+    req.logger?.debug('[Webhook] No webhook configured', {
+      clientWebhook: client?.config?.webhook,
+      serverWebhook: req.serverOptions.webhook?.url,
+      event,
+      session: client?.session,
+    });
+    return;
+  }
+
+  req.logger?.debug('[Webhook] Attempting to send webhook', {
+    webhook,
+    event,
+    session: client?.session,
+    from: data?.from,
+    chatId: data?.chatId,
+  });
+
+  // Filter 1: NEVER send group messages to webhook (highest priority)
     const isGroup = data?.from?.endsWith('@g.us') || data?.chatId?.endsWith('@g.us');
     if (isGroup) {
       req.logger.debug('Blocking group message from webhook', {
@@ -216,16 +245,33 @@ export async function callWebHook(
       req.logger.info(`[Webhook] Sending ${event} to ${webhook} with headers:`, Object.keys(headers));
 
       api
-        .post(webhook, data, { headers })
-        .then(() => {
+        .post(webhook, data, { 
+          headers,
+          timeout: 30000, // 30 seconds timeout
+        })
+        .then((response) => {
+          req.logger.info(`[Webhook] Successfully sent ${event} to ${webhook}`, {
+            status: response.status,
+            event,
+            session: client?.session,
+          });
           try {
             const events = ['unreadmessages', 'onmessage'];
             if (events.includes(event) && req.serverOptions.webhook.readMessage)
               client.sendSeen(chatId);
-          } catch (e) {}
+          } catch (e) {
+            req.logger.warn(`[Webhook] Error sending seen after webhook:`, e);
+          }
         })
         .catch((e) => {
-          req.logger.warn('Error calling Webhook.', e);
+          req.logger.error(`[Webhook] Error calling webhook ${webhook}:`, {
+            event,
+            session: client?.session,
+            error: e.message || e,
+            code: e.code,
+            response: e.response?.data,
+            status: e.response?.status,
+          });
         });
     } catch (e) {
       req.logger.error(e);
