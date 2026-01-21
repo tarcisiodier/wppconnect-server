@@ -12,6 +12,11 @@ services:
       - wppconnect_tokens:/usr/src/wpp-server/tokens
       - wppconnect_userdata:/usr/src/wpp-server/userDataDir
       - wpp_logs:/usr/src/wpp-server/logs
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    extra_hosts:
+      - "nanda-n8n.mzmml9.easypanel.host:57.129.80.145"
     # depends_on:
     #   - wpp-redis
     stop_grace_period: 30s

@@ -190,7 +190,9 @@ export async function showAllSessions(
     for (const sessionName of sessionNames) {
       try {
         // Criar token store para buscar dados da sessão
-        const myTokenStore = tokenStore.createTokenStory(null);
+        // Passar um objeto client vazio para evitar erro ao acessar client.config
+        const emptyClient = { config: {}, session: sessionName };
+        const myTokenStore = tokenStore.createTokenStory(emptyClient);
         const tokenData = await myTokenStore.getToken(sessionName);
 
         // Extrair webhook (pode estar em config.webhook, webhook direto, ou usar o padrão global)
