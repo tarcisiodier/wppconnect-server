@@ -55,3 +55,4 @@ logs/
 # Testing & Coverage
 coverage/
 .nyc_output/
+yarn.lock
