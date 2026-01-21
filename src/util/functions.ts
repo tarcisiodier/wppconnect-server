@@ -133,7 +133,7 @@ export async function callWebHook(
 
   const webhook =
     client?.config?.webhook || req.serverOptions.webhook?.url || false;
-  
+
   if (!webhook) {
     req.logger?.debug('[Webhook] No webhook configured', {
       clientWebhook: client?.config?.webhook,
@@ -153,51 +153,55 @@ export async function callWebHook(
   });
 
   // Filter 1: NEVER send group messages to webhook (highest priority)
-    const isGroup = data?.from?.endsWith('@g.us') || data?.chatId?.endsWith('@g.us');
-    if (isGroup) {
-      req.logger.debug('Blocking group message from webhook', {
-        event,
-        from: data?.from,
-        chatId: data?.chatId,
-        fromMe: data?.fromMe
-      });
-      return;
-    }
+  const isGroup =
+    data?.from?.endsWith('@g.us') || data?.chatId?.endsWith('@g.us');
+  if (isGroup) {
+    req.logger.debug('Blocking group message from webhook', {
+      event,
+      from: data?.from,
+      chatId: data?.chatId,
+      fromMe: data?.fromMe,
+    });
+    return;
+  }
 
-    // Filter 1.5: NEVER send newsletter/channel messages to webhook
-    const isNewsletter = data?.from?.endsWith('@newsletter') || data?.chatId?.endsWith('@newsletter');
-    if (isNewsletter) {
-      req.logger.debug('Blocking newsletter/channel message from webhook', {
-        event,
-        from: data?.from,
-        chatId: data?.chatId,
-        fromMe: data?.fromMe
-      });
-      return;
-    }
+  // Filter 1.5: NEVER send newsletter/channel messages to webhook
+  const isNewsletter =
+    data?.from?.endsWith('@newsletter') ||
+    data?.chatId?.endsWith('@newsletter');
+  if (isNewsletter) {
+    req.logger.debug('Blocking newsletter/channel message from webhook', {
+      event,
+      from: data?.from,
+      chatId: data?.chatId,
+      fromMe: data?.fromMe,
+    });
+    return;
+  }
 
-    // Filter 2: Check if it's an API-sent message
-    // API messages have ack=0 (not sent to server yet)
-    // App/Web messages have ack=1 (already sent to server)
-    // const isApiMessage = data?.ack === 0;
-    // const shouldFilterApiMessage =
-    //   !req.serverOptions.webhook.sendApi &&
-    //   data?.fromMe &&
-    //   isApiMessage;
+  // Filter 2: Check if it's an API-sent message
+  // API messages have ack=0 (not sent to server yet)
+  // App/Web messages have ack=1 (already sent to server)
+  // const isApiMessage = data?.ack === 0;
+  // const shouldFilterApiMessage =
+  //   !req.serverOptions.webhook.sendApi &&
+  //   data?.fromMe &&
+  //   isApiMessage;
 
-    // if (shouldFilterApiMessage) {
-    //   req.logger.debug('Filtering API-sent message from webhook', {
-    //     sendApi: req.serverOptions.webhook.sendApi,
-    //     fromMe: data?.fromMe,
-    //     messageId: data?.id?.id,
-    //     event: event
-    //   });
-    //   return;
-    // }
+  // if (shouldFilterApiMessage) {
+  //   req.logger.debug('Filtering API-sent message from webhook', {
+  //     sendApi: req.serverOptions.webhook.sendApi,
+  //     fromMe: data?.fromMe,
+  //     messageId: data?.id?.id,
+  //     event: event
+  //   });
+  //   return;
+  // }
 
-    // Filter 3: Check ignore list (for other patterns like status@broadcast)
-    if (req.serverOptions.webhook?.ignore) {
-      const shouldIgnore = req.serverOptions.webhook.ignore.some((pattern: string) => {
+  // Filter 3: Check ignore list (for other patterns like status@broadcast)
+  if (req.serverOptions.webhook?.ignore) {
+    const shouldIgnore = req.serverOptions.webhook.ignore.some(
+      (pattern: string) => {
         return (
           event === pattern ||
           data?.type === pattern ||
@@ -205,77 +209,85 @@ export async function callWebHook(
           data?.from?.endsWith(pattern) ||
           data?.chatId?.endsWith(pattern)
         );
+      }
+    );
+    if (shouldIgnore) {
+      req.logger.debug('Ignoring webhook due to ignore pattern', {
+        event,
+        from: data?.from,
+        chatId: data?.chatId,
+        type: data?.type,
       });
-      if (shouldIgnore) {
-        req.logger.debug('Ignoring webhook due to ignore pattern', {
+      return;
+    }
+  }
+  if (req.serverOptions.webhook.autoDownload)
+    await autoDownload(client, req, data);
+  try {
+    const chatId =
+      data.from ||
+      data.chatId ||
+      (data.chatId ? data.chatId._serialized : null);
+
+    // Add event and session to webhook data
+    const webhookData: any = {
+      event: event,
+      session: client.session,
+    };
+
+    data = Object.assign(webhookData, data);
+    if (req.serverOptions.mapper.enable)
+      data = await convert(req.serverOptions.mapper.prefix, data);
+
+    const headers: any = {};
+    if (req.serverOptions.webhook.globalXToken) {
+      headers['x-token'] = req.serverOptions.webhook.globalXToken;
+      req.logger.info(
+        `[Webhook] Adding x-token header: ${req.serverOptions.webhook.globalXToken.substring(
+          0,
+          10
+        )}...`
+      );
+    } else {
+      req.logger.warn(`[Webhook] No globalXToken found in server options`);
+    }
+
+    req.logger.info(
+      `[Webhook] Sending ${event} to ${webhook} with headers:`,
+      Object.keys(headers)
+    );
+
+    api
+      .post(webhook, data, {
+        headers,
+        timeout: 30000, // 30 seconds timeout
+      })
+      .then((response) => {
+        req.logger.info(`[Webhook] Successfully sent ${event} to ${webhook}`, {
+          status: response.status,
           event,
-          from: data?.from,
-          chatId: data?.chatId,
-          type: data?.type
+          session: client?.session,
         });
-        return;
-      }
-    }
-    if (req.serverOptions.webhook.autoDownload)
-      await autoDownload(client, req, data);
-    try {
-      const chatId =
-        data.from ||
-        data.chatId ||
-        (data.chatId ? data.chatId._serialized : null);
-
-      // Add event and session to webhook data
-      const webhookData: any = {
-        event: event,
-        session: client.session
-      };
-
-      data = Object.assign(webhookData, data);
-      if (req.serverOptions.mapper.enable)
-        data = await convert(req.serverOptions.mapper.prefix, data);
-
-      const headers: any = {};
-      if (req.serverOptions.webhook.globalXToken) {
-        headers['x-token'] = req.serverOptions.webhook.globalXToken;
-        req.logger.info(`[Webhook] Adding x-token header: ${req.serverOptions.webhook.globalXToken.substring(0, 10)}...`);
-      } else {
-        req.logger.warn(`[Webhook] No globalXToken found in server options`);
-      }
-
-      req.logger.info(`[Webhook] Sending ${event} to ${webhook} with headers:`, Object.keys(headers));
-
-      api
-        .post(webhook, data, { 
-          headers,
-          timeout: 30000, // 30 seconds timeout
-        })
-        .then((response) => {
-          req.logger.info(`[Webhook] Successfully sent ${event} to ${webhook}`, {
-            status: response.status,
-            event,
-            session: client?.session,
-          });
-          try {
-            const events = ['unreadmessages', 'onmessage'];
-            if (events.includes(event) && req.serverOptions.webhook.readMessage)
-              client.sendSeen(chatId);
-          } catch (e) {
-            req.logger.warn(`[Webhook] Error sending seen after webhook:`, e);
-          }
-        })
-        .catch((e) => {
-          req.logger.error(`[Webhook] Error calling webhook ${webhook}:`, {
-            event,
-            session: client?.session,
-            error: e.message || e,
-            code: e.code,
-            response: e.response?.data,
-            status: e.response?.status,
-          });
+        try {
+          const events = ['unreadmessages', 'onmessage'];
+          if (events.includes(event) && req.serverOptions.webhook.readMessage)
+            client.sendSeen(chatId);
+        } catch (e) {
+          req.logger.warn(`[Webhook] Error sending seen after webhook:`, e);
+        }
+      })
+      .catch((e) => {
+        req.logger.error(`[Webhook] Error calling webhook ${webhook}:`, {
+          event,
+          session: client?.session,
+          error: e.message || e,
+          code: e.code,
+          response: e.response?.data,
+          status: e.response?.status,
         });
-    } catch (e) {
-      req.logger.error(e);
-    }
+      });
+  } catch (e) {
+    req.logger.error(e);
   }
 }
 
