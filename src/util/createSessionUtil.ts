@@ -15,6 +15,7 @@
  */
 import { create, SocketState, StatusFind } from '@wppconnect-team/wppconnect';
 import { Request } from 'express';
+import path from 'path';
 
 import { download } from '../controller/sessionController';
 import { WhatsAppServer } from '../types/WhatsAppServer';
@@ -52,7 +53,7 @@ export default class CreateSessionUtil {
       // Save config to token data
       const updatedTokenData: any = {
         ...tokenData,
-        config: req.body
+        config: req.body,
       };
 
       // If bearerToken is provided in the request body, save it
@@ -63,16 +64,14 @@ export default class CreateSessionUtil {
       // we need this to update phone in config every time session starts, so we can ask for code for it again.
       myTokenStore.setToken(session, updatedTokenData ?? {});
 
-          
-          this.startChatWootClient(client);
+      this.startChatWootClient(client);
 
-          // Attach encode/decode functions to client for RedisTokenStore to use
-          client.encodeFunction = this.encodeFunction;
-          client.decodeFunction = this.decodeFunction;
+      // Attach encode/decode functions to client for RedisTokenStore to use
+      client.encodeFunction = this.encodeFunction;
+      client.decodeFunction = this.decodeFunction;
 
-          if (req.serverOptions.customUserDataDir) {
+      if (req.serverOptions.customUserDataDir) {
         // Fix potential path issue if trailing slash is missing
-        const path = require('path');
         req.serverOptions.createOptions.puppeteerOptions = {
           userDataDir: path.join(req.serverOptions.customUserDataDir, session),
         };
@@ -303,8 +302,11 @@ export default class CreateSessionUtil {
       eventEmitter.emit(`mensagem-${client.session}`, client, message);
 
       // Only send to webhook if not from a group or newsletter
-      const isGroup = message.from?.endsWith('@g.us') || message.chatId?.endsWith('@g.us');
-      const isNewsletter = message.from?.endsWith('@newsletter') || message.chatId?.endsWith('@newsletter');
+      const isGroup =
+        message.from?.endsWith('@g.us') || message.chatId?.endsWith('@g.us');
+      const isNewsletter =
+        message.from?.endsWith('@newsletter') ||
+        message.chatId?.endsWith('@newsletter');
 
       if (!isGroup && !isNewsletter) {
         try {
@@ -312,12 +314,17 @@ export default class CreateSessionUtil {
           let fullContact = {};
 
           try {
-            const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.from;
+            const bestId =
+              contact?.phoneNumber?._serialized ||
+              contact?.lid?._serialized ||
+              message.from;
             fullContact = await client.getContact(bestId);
           } catch (e2) {
-             req.logger.warn(`Could not get full contact info for ${message.from}`);
+            req.logger.warn(
+              `Could not get full contact info for ${message.from}`
+            );
           }
-          
+
           message.contactDetail = { ...contact, ...fullContact };
 
           // Add bearerToken from token store if available
@@ -330,21 +337,25 @@ export default class CreateSessionUtil {
               message.bearerToken = tokenData.bearerToken;
             }
           } catch (e) {
-            req.logger.warn(`Could not get bearerToken for ${client.session}: ${e}`);
+            req.logger.warn(
+              `Could not get bearerToken for ${client.session}: ${e}`
+            );
           }
-
         } catch (e) {
           req.logger.warn(`Could not get PnLid for ${message.from}`);
         }
         callWebHook(client, req, 'onmessage', message);
       } else {
-        req.logger.debug('Skipping webhook for group/newsletter message (onmessage)', {
-          from: message.from,
-          chatId: message.chatId,
-          fromMe: message.fromMe,
-          isGroup,
-          isNewsletter
-        });
+        req.logger.debug(
+          'Skipping webhook for group/newsletter message (onmessage)',
+          {
+            from: message.from,
+            chatId: message.chatId,
+            fromMe: message.fromMe,
+            isGroup,
+            isNewsletter,
+          }
+        );
       }
 
       if (message.type === 'location')
@@ -372,23 +383,26 @@ export default class CreateSessionUtil {
       // Only call webhook for self messages if configured
       if (req.serverOptions.webhook.onSelfMessage && message.fromMe) {
         // Filter 1: Check if it's a group message
-        const isGroup = message.from?.endsWith('@g.us') || message.chatId?.endsWith('@g.us');
+        const isGroup =
+          message.from?.endsWith('@g.us') || message.chatId?.endsWith('@g.us');
         if (isGroup) {
           req.logger.debug('Skipping webhook for group self message', {
             from: message.from,
             chatId: message.chatId,
-            messageId: message?.id?.id
+            messageId: message?.id?.id,
           });
           return;
         }
 
         // Filter 1.5: Check if it's a newsletter/channel message
-        const isNewsletter = message.from?.endsWith('@newsletter') || message.chatId?.endsWith('@newsletter');
+        const isNewsletter =
+          message.from?.endsWith('@newsletter') ||
+          message.chatId?.endsWith('@newsletter');
         if (isNewsletter) {
           req.logger.debug('Skipping webhook for newsletter self message', {
             from: message.from,
             chatId: message.chatId,
-            messageId: message?.id?.id
+            messageId: message?.id?.id,
           });
           return;
         }
@@ -397,7 +411,8 @@ export default class CreateSessionUtil {
         // API messages have ack=0 (not sent to server yet)
         // App/Web messages have ack=1 (already sent to server)
         const isApiMessage = message.ack === 0;
-        const shouldFilterApi = !req.serverOptions.webhook.sendApi && isApiMessage;
+        const shouldFilterApi =
+          !req.serverOptions.webhook.sendApi && isApiMessage;
 
         if (!shouldFilterApi) {
           req.logger.debug('Calling webhook for self message', {
@@ -405,7 +420,7 @@ export default class CreateSessionUtil {
             sendApi: req.serverOptions.webhook.sendApi,
             fromMe: message.fromMe,
             messageId: message?.id?.id,
-            isApiMessage: isApiMessage
+            isApiMessage: isApiMessage,
           });
 
           try {
@@ -414,10 +429,15 @@ export default class CreateSessionUtil {
               let fullContact = {};
 
               try {
-                const bestId = contact?.phoneNumber?._serialized || contact?.lid?._serialized || message.to;
+                const bestId =
+                  contact?.phoneNumber?._serialized ||
+                  contact?.lid?._serialized ||
+                  message.to;
                 fullContact = await client.getContact(bestId);
               } catch (e2) {
-                 req.logger.warn(`Could not get full contact info for recipient ${message.to}`);
+                req.logger.warn(
+                  `Could not get full contact info for recipient ${message.to}`
+                );
               }
 
               message.contactDetail = { ...contact, ...fullContact };
@@ -433,18 +453,19 @@ export default class CreateSessionUtil {
                 message.bearerToken = tokenData.bearerToken;
               }
             } catch (e) {
-              req.logger.warn(`Could not get bearerToken for ${client.session}: ${e}`);
+              req.logger.warn(
+                `Could not get bearerToken for ${client.session}: ${e}`
+              );
             }
-
           } catch (e) {
             req.logger.warn(`Could not get PnLid for recipient ${message.to}`);
           }
-          
+
           callWebHook(client, req, 'onselfmessage', message);
         } else {
           req.logger.debug('Skipping webhook for API-sent self message', {
             sendApi: req.serverOptions.webhook.sendApi,
-            messageId: message?.id?.id
+            messageId: message?.id?.id,
           });
         }
       }

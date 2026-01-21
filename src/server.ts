@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 import 'dotenv/config';
+
 import config from './config';
-import { initServer } from './index';
+import { initServer, logger } from './index';
 import { closeAllSessions } from './util/manageSession';
-import { logger } from './index';
 
 const { http: server } = initServer(config);
 
 // Graceful shutdown handlers
 async function gracefulShutdown(signal: string) {
   logger.info(`${signal} received. Starting graceful shutdown...`);
-  
+
   try {
     // Fecha todas as sessões do Chrome
     await closeAllSessions({ logger } as any);
     logger.info('All sessions closed successfully');
-    
+
     // Fecha o servidor HTTP se retornado
     if (server) {
       server.close(() => {

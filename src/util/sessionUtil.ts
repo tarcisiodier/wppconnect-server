@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Whatsapp } from '@wppconnect-team/wppconnect';
 import { EventEmitter } from 'events';
 
 export const chromiumArgs = [

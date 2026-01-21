@@ -68,7 +68,7 @@ export async function encryptSession(
       const updatedToken = {
         ...existingToken,
         bearerToken: hashFormat,
-        config: existingToken?.config || {}
+        config: existingToken?.config || {},
       };
 
       await myTokenStore.setToken(session, updatedToken);

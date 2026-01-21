@@ -218,7 +218,10 @@ export async function showAllSessions(
         });
       } catch (error) {
         // Se houver erro ao buscar dados da sessão, incluir mesmo assim com valores null
-        req.logger?.warn(`Error getting token data for session ${sessionName}:`, error);
+        req.logger?.warn(
+          `Error getting token data for session ${sessionName}:`,
+          error
+        );
         sessionsData.push({
           session: sessionName,
           webhook: req.serverOptions.webhook.url || null,

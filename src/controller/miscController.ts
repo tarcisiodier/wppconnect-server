@@ -19,11 +19,11 @@ import fs from 'fs';
 import path from 'path';
 
 import { logger } from '..';
-import Factory from '../util/tokenStore/factory';
 import config from '../config';
+import { callWebHook } from '../util/functions';
 import { backupSessions, restoreSessions } from '../util/manageSession';
 import { clientsArray, deleteSessionOnArray } from '../util/sessionUtil';
-import { callWebHook } from '../util/functions';
+import Factory from '../util/tokenStore/factory';
 
 export async function backupAllSessions(req: Request, res: Response) {
   /**
@@ -187,7 +187,7 @@ export async function clearSessionData(req: Request, res: Response) {
 
     res.status(200).json({
       success: true,
-      message: `Session ${session} data cleared successfully`
+      message: `Session ${session} data cleared successfully`,
     });
   } catch (error: any) {
     logger.error(error);
@@ -230,14 +230,17 @@ export async function deleteSession(req: Request, res: Response) {
     if (client) {
       try {
         wasConnected = client.status !== null;
-        
+
         // Close browser/page if exists
         if (client.page) {
           try {
             await client.close();
             logger.info(`Closed browser for session: ${session}`);
           } catch (closeError) {
-            logger.warn(`Error closing browser for session ${session}:`, closeError);
+            logger.warn(
+              `Error closing browser for session ${session}:`,
+              closeError
+            );
             // Try to close browser directly
             try {
               if (client.page?.browser) {
@@ -272,11 +275,17 @@ export async function deleteSession(req: Request, res: Response) {
               connected: false,
             });
           } catch (webhookError) {
-            logger.warn(`Error calling webhook for session deletion:`, webhookError);
+            logger.warn(
+              `Error calling webhook for session deletion:`,
+              webhookError
+            );
           }
         }
       } catch (clientError) {
-        logger.warn(`Error processing client for session ${session}:`, clientError);
+        logger.warn(
+          `Error processing client for session ${session}:`,
+          clientError
+        );
       }
     }
 
@@ -301,7 +310,10 @@ export async function deleteSession(req: Request, res: Response) {
         });
         logger.info(`Removed user data directory for session: ${session}`);
       } catch (dirError) {
-        logger.error(`Error removing user data directory for session ${session}:`, dirError);
+        logger.error(
+          `Error removing user data directory for session ${session}:`,
+          dirError
+        );
       }
     }
 
@@ -401,10 +413,7 @@ export async function clearSingletonFiles(req: Request, res: Response) {
       });
     }
 
-    const sessionDataDir = path.join(
-      config.customUserDataDir,
-      session
-    );
+    const sessionDataDir = path.join(config.customUserDataDir, session);
 
     if (!fs.existsSync(sessionDataDir)) {
       return res.status(404).json({
@@ -418,7 +427,11 @@ export async function clearSingletonFiles(req: Request, res: Response) {
 
     // Remove SingletonLock files
     try {
-      const lockCount = await findAndRemove(sessionDataDir, 'SingletonLock', false);
+      const lockCount = await findAndRemove(
+        sessionDataDir,
+        'SingletonLock',
+        false
+      );
       results.singletonLock = lockCount;
       totalRemoved += lockCount;
     } catch (error) {
@@ -428,7 +441,11 @@ export async function clearSingletonFiles(req: Request, res: Response) {
 
     // Remove SingletonSocket files
     try {
-      const socketCount = await findAndRemove(sessionDataDir, 'SingletonSocket', false);
+      const socketCount = await findAndRemove(
+        sessionDataDir,
+        'SingletonSocket',
+        false
+      );
       results.singletonSocket = socketCount;
       totalRemoved += socketCount;
     } catch (error) {
@@ -438,7 +455,11 @@ export async function clearSingletonFiles(req: Request, res: Response) {
 
     // Remove SingletonCookie files
     try {
-      const cookieCount = await findAndRemove(sessionDataDir, 'SingletonCookie', false);
+      const cookieCount = await findAndRemove(
+        sessionDataDir,
+        'SingletonCookie',
+        false
+      );
       results.singletonCookie = cookieCount;
       totalRemoved += cookieCount;
     } catch (error) {
@@ -448,7 +469,11 @@ export async function clearSingletonFiles(req: Request, res: Response) {
 
     // Remove Crashpad directories
     try {
-      const crashpadCount = await findAndRemove(sessionDataDir, 'Crashpad', true);
+      const crashpadCount = await findAndRemove(
+        sessionDataDir,
+        'Crashpad',
+        true
+      );
       results.crashpad = crashpadCount;
       totalRemoved += crashpadCount;
     } catch (error) {
@@ -456,7 +481,9 @@ export async function clearSingletonFiles(req: Request, res: Response) {
       results.crashpad = 0;
     }
 
-    logger.info(`Cleared singleton files for session ${session}: ${totalRemoved} items removed`);
+    logger.info(
+      `Cleared singleton files for session ${session}: ${totalRemoved} items removed`
+    );
 
     return res.status(200).json({
       success: true,
