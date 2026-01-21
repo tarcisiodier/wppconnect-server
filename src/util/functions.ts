@@ -122,7 +122,7 @@ export async function callWebHook(
 ) {
   // Check if req and serverOptions are available
   if (!req || !req.serverOptions) {
-    logger?.warn('[Webhook] Request or serverOptions not available', {
+    req?.logger?.warn('[Webhook] Request or serverOptions not available', {
       hasReq: !!req,
       hasServerOptions: !!(req && req.serverOptions),
       event,
