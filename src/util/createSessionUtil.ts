@@ -24,6 +24,40 @@ import { autoDownload, callWebHook, startHelper } from './functions';
 import { clientsArray, eventEmitter } from './sessionUtil';
 import Factory from './tokenStore/factory';
 
+/**
+ * Enriches contactDetail.labels (array of IDs) with label names from client.getAllLabels().
+ * Transforms ["18"] into [{ id: "18", name: "Nome da Label" }].
+ */
+async function enrichContactDetailLabels(
+  client: WhatsAppServer,
+  contactDetail: any
+): Promise<void> {
+  if (!contactDetail?.labels || !Array.isArray(contactDetail.labels)) return;
+  const labelIds = contactDetail.labels;
+  if (labelIds.length === 0) return;
+  const isIds = labelIds.every(
+    (item: any) => typeof item === 'string' || typeof item === 'number'
+  );
+  if (!isIds) return;
+  try {
+    const allLabels = await client.getAllLabels();
+    const idToName: Record<string, string | null> = {};
+    if (Array.isArray(allLabels)) {
+      for (const l of allLabels) {
+        if (l && typeof l.id !== 'undefined') {
+          idToName[String(l.id)] = l.name ?? null;
+        }
+      }
+    }
+    contactDetail.labels = labelIds.map((id: string | number) => ({
+      id: String(id),
+      name: idToName[String(id)] ?? null,
+    }));
+  } catch {
+    // keep labels as ids on error
+  }
+}
+
 export default class CreateSessionUtil {
   startChatWootClient(client: any) {
     if (client.config.chatWoot && !client._chatWootClient)
@@ -326,6 +360,7 @@ export default class CreateSessionUtil {
           }
 
           message.contactDetail = { ...contact, ...fullContact };
+          await enrichContactDetailLabels(client, message.contactDetail);
 
           // Add bearerToken from token store if available
           try {
@@ -441,6 +476,7 @@ export default class CreateSessionUtil {
               }
 
               message.contactDetail = { ...contact, ...fullContact };
+              await enrichContactDetailLabels(client, message.contactDetail);
             }
 
             // Add bearerToken from token store if available
