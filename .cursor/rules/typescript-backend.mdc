@@ -1,0 +1,15 @@
+---
+description: TypeScript e backend Node neste projeto
+globs: "**/*.{ts,js}"
+alwaysApply: false
+---
+
+# TypeScript / Node
+
+- Código-fonte em `src/`; build Babel → `dist/`. Não editar `dist/` manualmente.
+- `@typescript-eslint` + Prettier; `any` permitido no projeto — não expandir sem necessidade.
+- Imports ordenados (`simple-import-sort`): externos → internos → relativos.
+- Padrão dos controllers: funções exportadas, `req.client` após `verifyToken` + `statusConnection`.
+- Logger: `req.logger` ou `logger` de `src/index.ts` (Winston).
+- Erros: retornar JSON `{ message, ... }` com status HTTP adequado; evitar `catch` vazio (só `allowEmptyCatch` no ESLint).
+- Testes: Jest em `src/tests/`; rodar `yarn test` após mudanças em `util/` críticos.

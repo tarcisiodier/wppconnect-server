@@ -1,0 +1,13 @@
+---
+description: Docker e deploy do WPPConnect Server
+globs: "{Dockerfile,docker-compose.yml,.dockerignore,**/docker*}"
+alwaysApply: false
+---
+
+# Docker
+
+- `docker-compose.yml`: serviço `wppconnect`, porta `21465:21465`, volume `wppconnect_tokens`.
+- Compose monta `./config.ts` na raiz — em dev o arquivo real é `src/config.ts`; alinhar cópia/symlink se usar Docker.
+- Imagem precisa de deps Chrome/Puppeteer (ver README: libs sistema + Chrome).
+- Build: `docker compose build` / `up`. Não commitar tokens em `wppconnect_tokens/` ou `userDataDir/`.
+- `secretKey` e credenciais AWS: variáveis de ambiente ou config montado — nunca valores reais no git.

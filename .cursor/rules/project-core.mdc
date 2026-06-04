@@ -1,0 +1,16 @@
+---
+description: Contexto geral do WPPConnect Server — stack, comandos e convenções
+alwaysApply: true
+---
+
+# WPPConnect Server — núcleo
+
+- API WhatsApp: Node 22, TypeScript, Express, `@wppconnect-team/wppconnect`, Socket.IO.
+- Entry: `src/server.ts` → `src/index.ts` (`initServer`). Rotas: `src/routes/index.ts`.
+- Config: `src/config.ts` + `types/ServerOptions.ts`. Porta padrão `21465`.
+- Dev: `yarn dev`. Produção: `yarn build` + `yarn start` (usa `dist/`).
+- Commits: Conventional Commits (`feat`, `fix`, `chore`, `build`). Husky ativo.
+- Manter header Apache-2.0 em arquivos novos. `simple-import-sort` no ESLint.
+- Escopo mínimo: não alterar arquivos fora do pedido. Branch: `chore/custom-updates`.
+- Sessões multi-cliente: `clientsArray` em `util/sessionUtil.ts`; tokens em `util/tokenStore/`.
+- Detalhes: `.cursor/AGENTS.md` e skill `wppconnect-server`.

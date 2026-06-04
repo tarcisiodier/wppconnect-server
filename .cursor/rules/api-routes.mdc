@@ -1,0 +1,15 @@
+---
+description: Rotas REST, controllers e autenticação WPPConnect
+globs: "src/{routes,controller,middleware,mapper}/**/*"
+alwaysApply: false
+---
+
+# API e rotas
+
+- Prefixo: `/api/:session/...` ou `/api/:secretkey/...` (sessões globais).
+- Auth: middleware `verifyToken` — token no path `session:token` ou header; `secretKey` em config.
+- Antes de handlers de sessão: `verifyToken` e frequentemente `statusConnection`.
+- Novo endpoint: adicionar em `routes/index.ts` + método no controller correspondente; espelhar em Swagger se for público.
+- Respostas JSON podem passar por `mapper` se `serverOptions.mapper.enable` (middleware em `index.ts`).
+- Webhooks: `callWebHook` em `util/functions.ts`; opções em `config.webhook`.
+- Não quebrar contrato das rotas existentes sem versionar ou documentar no Swagger.
